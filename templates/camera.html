@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera {{CAMERA_NUMBER}} - Cue System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <script src="/static/vendor/tailwindcss.js"></script>
+    <script defer src="/static/vendor/lucide.js"></script>
+<style>
+        .bg-cue-current { background: linear-gradient(180deg, rgba(120, 40, 30, 0.4) 0%, #000 100%); }
+        .bg-cue-preview { background: linear-gradient(180deg, rgba(180, 80, 20, 0.2) 0%, #000 100%); }
+        .border-cue-current { border-left-color: #d97706; }
+        .border-cue-preview { border-left-color: #ea580c; }
+        .text-cue-current { color: #f97316; }
+        .text-cue-preview { color: #ea580c; }
+        .bg-badge-current { background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.4); }
+        .bg-badge-preview { background: rgba(234, 88, 12, 0.2); color: #ea580c; border: 1px solid rgba(234, 88, 12, 0.4); font-weight: 700; }
+        .bg-badge-upcoming { background: #222; color: #666; }
+        .bg-take { background: #f97316; }
+        .text-take { color: #000; }
+        .bg-camera-notes { background: rgba(217, 119, 6, 0.1); color: #d97706; border-left: 3px solid #d97706; }
+        .cue { transition: background-color 0.2s ease; }
+        /* Mobile optimization - ensure no overflow */
+        @supports (-webkit-touch-callout: none) {
+            body { height: -webkit-fill-available; }
+        }
+    </style>
+</head>
+<body class="bg-black text-white font-sans flex flex-col m-0 p-0 overflow-hidden" style="height: 100vh; height: 100dvh;">
+    <!-- Header - Compact for mobile -->
+    <header class="bg-gray-900 px-2 py-1.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <a href="/" class="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span id="serviceName" class="text-xs font-semibold hidden sm:inline">Loading...</span>
+        </a>
+        <div class="text-xl font-bold text-blue-400">CAM {{CAMERA_NUMBER}}</div>
+        <div id="status" class="text-sm font-bold px-3 py-1 rounded-full">Connecting...</div>
+    </header>
+    
+    <main id="main" class="flex-1 overflow-y-auto p-2 min-h-0">
+        <div id="cues-container" class="h-full flex flex-col gap-2"></div>
+    </main>
+    
+    <div id="wakeLock" class="fixed bottom-4 right-4 w-2.5 h-2.5 bg-blue-900 rounded-full opacity-40"></div>
+    
+    <!-- Wake Lock Activation Overlay -->
+    <div id="wakeLockOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg text-center max-w-sm mx-4">
+            <h3 class="text-xl font-bold mb-2 text-white">Keep Screen Awake?</h3>
+            <p class="text-gray-300 mb-4">Tap below to prevent your screen from sleeping during the production.</p>
+            <button id="enableWakeLock" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg w-full">
+                Enable Screen Wake Lock
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        const CAMERA_NUMBER = {{CAMERA_NUMBER}};
+        let ws;
+        let wakeLock = null;
+        let previousCurrentCue = null;
+        
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('wakeLock').style.background = 'rgb(12, 35, 64)'; // Blue = active
+                    document.getElementById('wakeLockOverlay').classList.add('hidden');
+                }
+            } catch (err) {
+                document.getElementById('wakeLock').style.background = '#ff5555'; // Red = failed
+                console.error('Wake lock failed:', err);
+            }
+        }
+        
+        function showWakeLockPrompt() {
+            // Only show if wake lock is supported but not yet activated
+            if ('wakeLock' in navigator && !wakeLock) {
+                document.getElementById('wakeLockOverlay').classList.remove('hidden');
+            }
+        }
+        
+        function vibrateOnChange() {
+            if ('vibrate' in navigator) {
+                navigator.vibrate(200);
+            }
+        }
+        
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                document.getElementById('status').textContent = '● Live';
+                document.getElementById('status').className = 'text-sm font-bold px-3 py-1 rounded-full bg-green-900 text-green-300 border border-green-600';
+                // loadCues(); // Data is already loaded by the immediate call
+                showWakeLockPrompt(); // Show prompt instead of auto-requesting
+            };
+            
+            ws.onclose = () => {
+                document.getElementById('status').textContent = '○ Offline';
+                document.getElementById('status').className = 'text-sm font-bold px-3 py-1 rounded-full bg-red-900 text-red-300 border border-red-600 animate-pulse';
+                setTimeout(connect, 2000);
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'state_update' || data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
+                    if (data.state && data.state.script_name) {
+                        document.getElementById('serviceName').textContent = data.state.script_name;
+                    }
+                    loadCues();
+                } else if (data.type === 'setting_updated' && data.key === 'script_name') {
+                    document.getElementById('serviceName').textContent = data.value;
+                }
+            };
+        }
+
+        async function loadSettings() {
+            // No longer needed - script_name comes with camera data
+        }
+        
+        async function loadCues() {
+            try {
+                const response = await fetch(`/api/camera/${CAMERA_NUMBER}`);
+                const data = await response.json();
+                
+                // Extract cues and script_name from batched response
+                const cues = data.cues || data; // Support both old and new format
+                if (data.script_name) {
+                    document.getElementById('serviceName').textContent = data.script_name;
+                }
+                
+                renderCues(cues);
+                
+                const currentCue = cues.find(c => c.is_current);
+                if (currentCue && currentCue.id !== previousCurrentCue) {
+                    vibrateOnChange();
+                    previousCurrentCue = currentCue.id;
+                }
+            } catch (error) {
+                console.error('Error loading cues:', error);
+            }
+        }
+        
+        function renderCues(cues) {
+            const container = document.getElementById('cues-container');
+            
+            if (cues.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-16 text-gray-600">
+                        <div class="text-5xl mb-4 opacity-50">✓</div>
+                        <div>No more cues</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Find current cue and next shot for this camera
+            const currentCueIndex = cues.findIndex(c => c.is_current);
+            const currentCue = currentCueIndex >= 0 ? cues[currentCueIndex] : null;
+            
+            // Find next shot for this camera (first cue after current with assignment)
+            let nextShot = null;
+            let nextShotDistance = 0;
+            for (let i = currentCueIndex + 1; i < cues.length; i++) {
+                if (cues[i].subject) {
+                    nextShot = cues[i];
+                    nextShotDistance = i - currentCueIndex;
+                    break;
+                }
+            }
+            
+            // Render two panes: Current Shot and Next Shot
+            container.innerHTML = `
+                <!-- CURRENT SHOT PANE -->
+                ${renderCurrentPane(currentCue)}
+                
+                <!-- NEXT SHOT PANE -->
+                ${renderNextPane(nextShot, nextShotDistance)}
+            `;
+        }
+        
+        function renderCurrentPane(cue) {
+            if (!cue) {
+                return `
+                    <div class="flex-1 flex flex-col rounded border border-gray-700 p-3 min-h-0">
+                        <div class="text-center text-gray-500 text-sm">No current cue</div>
+                    </div>
+                `;
+            }
+            
+            const hasAssignment = cue.subject && cue.subject.trim() !== '';
+            
+            // Light blue when not this camera's shot
+            if (!hasAssignment) {
+                return `
+                    <div class="flex-1 flex flex-col rounded border border-blue-900/30 bg-blue-950/20 p-3 min-h-0">
+                        <div class="text-blue-400/60 text-xs font-semibold mb-1">CURRENT</div>
+                        <div class="flex items-baseline gap-2 mb-2">
+                            <span class="text-blue-400/60 text-2xl font-mono font-bold">${cue.sequence_number}</span>
+                            <span class="text-blue-300/60 text-xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                        </div>
+                        ${cue.notes ? `<div class="text-blue-300/50 text-xs mb-1 leading-tight">${cue.notes}</div>` : ''}
+                        <div class="text-blue-400/50 text-sm italic">Not your shot</div>
+                    </div>
+                `;
+            }
+            
+            // Soft Red when it IS this camera's shot
+            return `
+                <div class="flex-1 flex flex-col rounded border-2 border-red-800/50 bg-red-950/40 p-3 shadow-lg shadow-red-900/20 min-h-0 overflow-y-auto">
+                    <div class="text-red-300/80 text-xs font-semibold mb-1.5">NOW</div>
+                    
+                    <!-- Cue Number and Title -->
+                    <div class="flex items-baseline gap-2 mb-3">
+                        <span class="text-white text-3xl font-mono font-bold leading-none">${cue.sequence_number}</span>
+                        <span class="text-white text-2xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                    </div>
+                    
+                    <!-- Most Important: Camera Subject (what you're shooting) -->
+                    <div class="bg-black/30 rounded p-2 mb-2 border-l-2 border-red-600/50">
+                        <div class="text-red-300 text-xs font-semibold mb-0.5">SUBJECT</div>
+                        <div class="text-red-50 text-2xl font-bold leading-tight">${cue.subject}</div>
+                    </div>
+                    
+                    <!-- Shot Type -->
+                    ${cue.shot_type ? `
+                        <div class="bg-black/20 rounded p-2 mb-2">
+                            <div class="text-red-300/70 text-xs font-semibold mb-0.5">SHOT</div>
+                            <div class="text-white text-lg font-semibold leading-tight">${cue.shot_type}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Camera Notes (Important) -->
+                    ${cue.camera_notes ? `
+                        <div class="bg-red-900/20 rounded p-2 mb-2 border-l-2 border-red-700/50">
+                            <div class="text-red-200 text-xs font-semibold mb-0.5">NOTES</div>
+                            <div class="text-red-100 text-base leading-tight">${cue.camera_notes}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Less Important: Scene Info -->
+                    ${cue.notes ? `<div class="text-red-200/60 text-xs mt-1 leading-tight">${cue.notes}</div>` : ''}
+                </div>
+            `;
+        }
+        
+        function renderNextPane(nextShot, distance) {
+            if (!nextShot) {
+                return `
+                    <div class="flex-1 flex flex-col rounded border border-gray-700 p-2 min-h-0">
+                        <div class="text-gray-500 text-xs font-semibold mb-1">NEXT</div>
+                        <div class="text-center text-gray-500 text-sm">No upcoming</div>
+                    </div>
+                `;
+            }
+            
+            // "UPCOMING" when far (3+ cues away), "GET READY" when close (1-2 cues away)
+            const isClose = distance <= 2;
+            const badgeText = isClose ? 'READY' : 'NEXT';
+            const bgColor = isClose ? 'bg-orange-500/10' : 'bg-gray-900/30';
+            const borderColor = isClose ? 'border-orange-400/60 border-2' : 'border-gray-700 border';
+            const textColor = isClose ? 'text-orange-200' : 'text-gray-400';
+            const subjectColor = isClose ? 'text-white' : 'text-gray-200';
+            const badgeColor = isClose ? 'bg-orange-400/20 text-orange-300 border border-orange-400/40' : 'bg-gray-800 text-gray-400';
+            
+            return `
+                <div class="flex-1 flex flex-col rounded ${bgColor} border ${borderColor} p-2 min-h-0 overflow-y-auto">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="${textColor} text-xs font-semibold">${badgeText}</div>
+                        <div class="${badgeColor} px-2 py-0.5 rounded text-xs font-bold ${isClose ? 'animate-pulse' : ''}">${distance === 1 ? 'UP NEXT' : `${distance} cues left`}</div>
+                    </div>
+                    
+                    <!-- Cue Number and Title -->
+                    <div class="flex items-baseline gap-2 mb-2">
+                        <span class="${textColor} text-xl font-mono font-bold leading-none">${nextShot.sequence_number}</span>
+                        <span class="${textColor} text-lg font-bold flex-1 leading-tight">${nextShot.line_text || 'Untitled'}</span>
+                    </div>
+                    
+                    <!-- Most Important: Camera Subject -->
+                    <div class="bg-black/30 rounded p-2 mb-1.5 border-l-2 ${isClose ? 'border-orange-400/70' : 'border-gray-600'}">
+                        <div class="${isClose ? 'text-orange-300' : 'text-gray-400'} text-xs font-semibold mb-0.5">SUBJECT</div>
+                        <div class="${subjectColor} text-xl font-bold leading-tight">${nextShot.subject}</div>
+                    </div>
+                    
+                    <!-- Shot Type -->
+                    ${nextShot.shot_type ? `
+                        <div class="bg-black/20 rounded p-1.5 mb-1.5">
+                            <div class="${textColor} text-xs font-semibold mb-0.5">SHOT</div>
+                            <div class="${textColor} text-sm font-semibold leading-tight">${nextShot.shot_type}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Camera Notes -->
+                    ${nextShot.camera_notes ? `
+                        <div class="bg-orange-400/10 rounded p-1.5 mb-1.5 border-l-2 border-orange-400/40">
+                            <div class="text-orange-200 text-xs font-semibold mb-0.5">NOTES</div>
+                            <div class="text-orange-100 text-sm leading-tight">${nextShot.camera_notes}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Less Important: Scene Info -->
+                    ${nextShot.notes ? `<div class="${textColor} opacity-70 text-xs mt-1 leading-tight">${nextShot.notes}</div>` : ''}
+                </div>
+            `;
+        }
+        
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // Reconnect WebSocket if disconnected when coming back from sleep
+                if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CONNECTING) {
+                    if (ws) ws.close();
+                    connect();
+                }
+            }
+        });
+
+        // Handle wake lock button click
+        document.getElementById('enableWakeLock').addEventListener('click', () => {
+            requestWakeLock();
+        });
+
+        // Auto-reconnect every 5 seconds if disconnected
+        setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connect();
+            }
+            // Re-request wake lock if it was previously active
+            if (wakeLock !== null) {
+                requestWakeLock();
+            }
+            // Refresh data immediately
+            loadCues();
+        }, 5000);
+        
+        // Also reconnect when window gains focus (handles force quit + reopen)
+        window.addEventListener('focus', () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connect();
+            }
+            loadCues();
+        });
+        
+        // Periodic connection check (every 5 seconds) - reconnect if offline
+        setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                connect();
+            }
+        }, 5000);
+        
+        // Start loading data immediately and connect WebSocket
+        loadCues();
+        connect();
+    </script>
+</body>
+</html>

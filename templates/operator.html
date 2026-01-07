@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Operator - Camera Cue System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <script src="/static/vendor/tailwindcss.js"></script>
+    <script defer src="/static/vendor/lucide.js"></script>
+    <style>
+        .bg-cue-current { background: #1a2530; }
+        .border-cue-current { border-left-color: rgb(12, 35, 64); }
+        .bg-btn-primary { background: rgb(0, 85, 170); }
+        .bg-btn-primary:hover { background: rgb(0, 102, 204); }
+        .bg-btn-secondary { background: rgb(12, 35, 64); }
+        .bg-btn-secondary:hover { background: rgb(20, 50, 85); }
+        .bg-btn-delete { background: #3a1a1a; }
+        .bg-btn-delete:hover { background: #4a2a2a; }
+        .bg-btn-export { background: #1a4d2e; }
+        .bg-btn-export:hover { background: #23612e; }
+        .bg-btn-import { background: #2d4a7c; }
+        .bg-btn-import:hover { background: #3a5f9e; }
+        .text-btn-cancel { background: #444; }
+        .text-btn-cancel:hover { background: #555; }
+        .bg-modal { background: #1e293b; }
+        .editable:hover { background: #222; border-color: #444; }
+        .editable:focus { background: #222; border-color: rgb(12, 35, 64); }
+        .cue-line:empty::before { content: 'No line text'; color: #666; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col m-0 p-0">
+    <!-- Main Header with everything unified -->
+    <header class="bg-slate-800 border-b border-slate-700 py-3 px-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <a href="/" class="flex items-center gap-2 text-white hover:text-blue-400 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                <span id="serviceName" class="text-lg font-bold">Loading...</span>
+            </a>
+            <span id="status" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700 text-gray-400">Connecting...</span>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <input type="number" id="goToCueInput" placeholder="Go to cue #" min="1" onkeydown="if(event.key === 'Enter') goToCue()" class="w-24 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500">
+            <button onclick="goToCue()" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Go</button>
+            <button onclick="resetToStart()" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-900/50 text-red-300 hover:bg-red-900/70 border border-red-800 transition-colors">Reset</button>
+            <button id="editToggle" onclick="toggleEditMode()" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition-colors">Edit</button>
+        </div>
+    </header>
+
+    <!-- Reset to Start Modal -->
+    <div id="resetModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-lg font-semibold text-white mb-2">Reset to Start?</div>
+            <div class="text-gray-400 mb-5 leading-relaxed">This will jump back to Cue 1. Your cues and camera assignments stay intact.</div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
+                <button onclick="confirmReset()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Reset to Start</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear All Data Modal -->
+    <div id="clearModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-lg font-semibold text-red-400 mb-2">Clear All Data?</div>
+            <div class="text-gray-400 mb-5 leading-relaxed">This will <span class="text-red-400 font-medium">permanently delete</span> ALL cues and camera assignments. This cannot be undone.</div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeClearModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
+                <button onclick="confirmClear()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Delete Everything</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Camera Modal -->
+    <div id="addCameraModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-lg font-semibold text-white mb-4">Add Camera to Cue <span id="addCameraCueNum"></span></div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Camera Number</label>
+                <select id="newCameraNumber" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm focus:outline-none focus:border-blue-500">
+                    <option value="1">Camera 1</option>
+                    <option value="2">Camera 2</option>
+                    <option value="3">Camera 3</option>
+                    <option value="4">Camera 4</option>
+                    <option value="5">Camera 5</option>
+                    <option value="7">Camera 7</option>
+                    <option value="9">Camera 9</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Subject</label>
+                <input type="text" id="newCameraSubject" placeholder="e.g., Lead Actor, Chorus, Stage Left" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Description</label>
+                <input type="text" id="newCameraShotType" placeholder="e.g., Wide Shot, Close Up, Follow Action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-2">Notes (optional)</label>
+                <input type="text" id="newCameraNotes" placeholder="e.g., Wait for mark, Follow action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeAddCameraModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
+                <button onclick="confirmAddCamera()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Add Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Camera Modal -->
+    <div id="deleteCameraModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-lg font-semibold text-red-400 mb-2">Remove Camera <span id="deleteCameraNum"></span>?</div>
+            <div class="text-gray-400 mb-5 leading-relaxed">This will remove Camera <span id="deleteCameraNumText"></span> from Cue <span id="deleteCameraCueNum"></span>.</div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeDeleteCameraModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
+                <button onclick="confirmDeleteCamera()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Remove Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Cue Confirmation Modal -->
+    <div id="deleteCueModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-lg font-semibold text-red-400 mb-2">Delete Cue?</div>
+            <div class="text-gray-400 mb-5 leading-relaxed">Are you sure you want to delete <span id="deleteCueLabel" class="font-semibold text-white"></span>?</div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeDeleteCueModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
+                <button onclick="confirmDeleteCue()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <main id="main" class="flex-1 overflow-y-auto p-4">
+        <div id="cues">
+            <p class="text-center text-gray-500 py-10">Loading cues...</p>
+        </div>
+    </main>
+    
+    <!-- Add Cue Buttons (Edit Mode Only) -->
+    <div id="addCueButtons" class="sticky bottom-0 bg-slate-800 border-t border-slate-700 p-3 gap-2 justify-center items-center hidden">
+        <button onclick="addCueAtPosition('start')" class="px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-gray-400 rounded transition-colors" title="Add cue at beginning">+ Start</button>
+        <button onclick="addCueAtPosition('before')" class="flex-1 py-3 font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
+            <span class="text-xl">+</span>
+            <span>Add Cue Before</span>
+            <span class="text-lg">↑</span>
+        </button>
+        <button onclick="addCueAtPosition('after')" class="flex-1 py-3 font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
+            <span class="text-lg">↓</span>
+            <span>Add Cue After</span>
+            <span class="text-xl">+</span>
+        </button>
+        <button onclick="addCueAtPosition('end')" class="px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-gray-400 rounded transition-colors" title="Add cue at end">End +</button>
+    </div>
+    
+    <!-- Navigation Buttons (Always Visible) -->
+    <div id="navButtons" class="sticky bottom-0 bg-slate-800 border-t border-slate-700 p-3 flex gap-2 justify-center">
+        <button id="prevBtn" onclick="previous()" class="flex-1 py-3 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">← Previous</button>
+        <button id="nextBtn" onclick="advance()" class="flex-1 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">Next →</button>
+    </div>
+    
+    <script>
+        let ws;
+        let editMode = false;
+        let allCues = [];
+        let pendingAddCameraCueId = null;
+        let pendingDeleteCameraInfo = null;
+        
+        function toggleEditMode() {
+            editMode = !editMode;
+            const toggle = document.getElementById('editToggle');
+            const navButtons = document.getElementById('navButtons');
+            const addCueButtons = document.getElementById('addCueButtons');
+            
+            if (editMode) {
+                toggle.textContent = 'Done';
+                toggle.classList.remove('bg-slate-700', 'hover:bg-slate-600');
+                toggle.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                navButtons.classList.add('hidden');
+                addCueButtons.classList.remove('hidden');
+                addCueButtons.classList.add('flex');
+            } else {
+                toggle.textContent = 'Edit';
+                toggle.classList.add('bg-slate-700', 'hover:bg-slate-600');
+                toggle.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                navButtons.classList.remove('hidden');
+                addCueButtons.classList.add('hidden');
+                addCueButtons.classList.remove('flex');
+            }
+            
+            renderCues(allCues, true, 'instant');
+        }
+        
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900';
+                // Data is already loaded by the immediate calls
+            };
+            
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-red-900/30 text-red-400 border border-red-900';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'state_update') {
+                    if (data.state && data.state.script_name) {
+                        document.getElementById('serviceName').textContent = data.state.script_name;
+                    }
+                    loadCues(true); // Scroll to current cue on state updates
+                } else if (data.type === 'setting_updated' && data.key === 'script_name') {
+                    document.getElementById('serviceName').textContent = data.value;
+                } else if (data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
+                    loadCues(false); // Don't scroll when editing
+                }
+            };
+        }
+        
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings/script_name');
+                const data = await response.json();
+                if (data.value) {
+                    document.getElementById('serviceName').textContent = data.value;
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+        
+        async function loadCues(shouldScroll = false, scrollBehavior = 'smooth') {
+            try {
+                const response = await fetch('/api/cues/all');
+                allCues = await response.json();
+                renderCues(allCues, shouldScroll, scrollBehavior);
+            } catch (err) {
+                console.error('Failed to load cues:', err);
+            }
+        }
+        
+        function renderCues(cues, shouldScroll = false, scrollBehavior = 'smooth') {
+            const container = document.getElementById('cues');
+            if (!cues.length) {
+                container.innerHTML = '<p class="text-center text-gray-500 py-10">No cues loaded</p>';
+                return;
+            }
+            
+            const currentCueId = cues.find(c => c.is_current)?.id;
+            
+            container.innerHTML = cues.map(cue => {
+                const isCurrent = cue.is_current;
+                const hasPending = pendingCameras[cue.id] && pendingCameras[cue.id].length > 0;
+                
+                return `
+                    <div class="cue p-6 rounded-lg border transition-all ${isCurrent ? 'bg-slate-800 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-slate-900 border-slate-700'}">
+                        <div class="flex items-start justify-between gap-4 mb-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="font-bold text-3xl text-white">Cue ${cue.sequence_number}</div>
+                                    ${isCurrent ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-600 text-white animate-pulse">NOW</span>' : ''}
+                                </div>
+                                ${editMode ? `
+                                    <input type="text" placeholder="Enter cue description" value="${cue.line_text || ''}" onblur="saveCueField(${cue.id}, 'line_text', this.value)" onkeydown="if(event.key==='Enter') this.blur()" class="w-full px-3 py-2 rounded bg-slate-800 border border-slate-600 text-white text-lg font-medium focus:outline-none focus:border-blue-500 placeholder-gray-500" />
+                                ` : `
+                                    <div class="text-lg font-medium text-white">${cue.line_text || 'Untitled Cue'}</div>
+                                `}
+                                ${editMode ? `
+                                    <textarea placeholder="Add notes..." onblur="saveCueField(${cue.id}, 'notes', this.value)" onkeydown="if(event.key==='Enter' && !event.shiftKey) this.blur()" class="w-full px-3 py-2 mt-2 rounded bg-slate-800 border border-slate-600 text-gray-300 text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500" rows="2">${cue.notes || ''}</textarea>
+                                ` : cue.notes ? `
+                                    <div class="text-sm text-gray-400 mt-2">${cue.notes}</div>
+                                ` : ''}
+                            </div>
+                            ${editMode ? `
+                                <button onclick="deleteCueById(${cue.id}, ${cue.sequence_number}, '${(cue.line_text || 'Untitled Cue').replace(/'/g, "\\'")}')" class="px-3 py-1.5 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded transition-colors" title="Delete this cue">Delete</button>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-3 mt-4">
+                            ${(cue.cameras || []).map(cam => `
+                                <div class="flex-none w-[250px] p-4 rounded-lg border transition-all ${cam.expected_take ? 'bg-red-900/20 border-red-700' : 'bg-slate-800 border-slate-600'}">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-bold text-lg text-white">Cam ${cam.camera_number}</span>
+                                            ${cam.expected_take ? `
+                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">⭐ TAKE</button>
+                                            ` : `
+                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-gray-400 hover:bg-slate-600 transition-colors">NOT TAKE</button>
+                                            `}
+                                        </div>
+                                        ${editMode ? `
+                                            <button onclick="openDeleteCameraModal(${cue.id}, ${cam.camera_number})" class="text-red-400 hover:text-red-300 text-sm">✕</button>
+                                        ` : ''}
+                                    </div>
+                                    ${editMode ? `
+                                        <div>
+                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">SUBJECT</label>
+                                            <input type="text" value="${cam.subject || ''}" onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'subject', this.value)" onkeydown="if(event.key==='Enter') this.blur()" placeholder="Subject" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">SHOT TYPE</label>
+                                            <input type="text" value="${cam.shot_type || ''}" onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'shot_type', this.value)" onkeydown="if(event.key==='Enter') this.blur()" placeholder="Shot Type" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-300 text-sm focus:outline-none focus:border-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">NOTES</label>
+                                            <textarea onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'notes', this.value)" onkeydown="if(event.key==='Enter' && !event.shiftKey) this.blur()" placeholder="Notes" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-400 text-sm focus:outline-none focus:border-emerald-500" rows="2">${cam.notes || ''}</textarea>
+                                        </div>
+                                    ` : `
+                                        <div class="text-sm font-medium text-white mb-1 truncate">${cam.subject || 'No subject'}</div>
+                                        ${cam.shot_type ? `<div class="text-xs text-gray-400 mb-1 truncate">${cam.shot_type}</div>` : ''}
+                                        ${cam.notes ? `<div class="text-[11px] text-gray-500 italic line-clamp-2">${cam.notes}</div>` : ''}
+                                    `}
+                                </div>
+                            `).join('')}
+                            
+                            ${editMode ? `
+                                <div id="pending-cameras-${cue.id}" class="contents"></div>
+                                
+                                <div class="flex items-center gap-3">
+                                    <button onclick="addNewCameraForm('${cue.id}')" class="flex-none w-[200px] h-[160px] rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/50 text-slate-500 hover:text-blue-400 transition-all flex flex-col items-center justify-center gap-2 group">
+                                        <span class="text-3xl font-light group-hover:scale-110 transition-transform">+</span>
+                                        <span class="text-[10px] font-bold uppercase tracking-widest">Add Camera</span>
+                                    </button>
+                                    
+                                    <div id="save-controls-${cue.id}" class="${hasPending ? 'flex' : 'hidden'} flex-col gap-2 self-center">
+                                        <button onclick="saveAllNewCameras('${cue.id}')" id="save-all-btn-${cue.id}" class="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all active:scale-95">
+                                            SAVE ALL
+                                        </button>
+                                        <button onclick="cancelAddCamera('${cue.id}')" id="cancel-all-btn-${cue.id}" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-400 text-[10px] font-bold uppercase tracking-wider transition-colors">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // After re-rendering, Restore any pending camera forms
+            cues.forEach(cue => {
+                if (pendingCameras[cue.id] && pendingCameras[cue.id].length > 0) {
+                    renderPendingCameras(cue.id);
+                }
+            });
+            
+            // Only scroll current cue to center when explicitly requested (e.g., on cue advancement)
+            if (shouldScroll) {
+                setTimeout(() => {
+                    const currentCue = document.querySelector('.cue.bg-slate-800');
+                    if (currentCue) {
+                        currentCue.scrollIntoView({ behavior: scrollBehavior, block: 'center' });
+                    }
+                }, 50);
+            }
+        }
+        
+        async function advance() {
+            await fetch('/api/advance', { method: 'POST' });
+        }
+        
+        async function previous() {
+            await fetch('/api/previous', { method: 'POST' });
+        }
+        
+        async function goToCue() {
+            const input = document.getElementById('goToCueInput');
+            const cueNum = parseInt(input.value);
+            if (cueNum) {
+                await fetch(`/api/goto/${cueNum}`, { method: 'POST' });
+                input.value = '';
+            }
+        }
+        
+        async function resetToStart() {
+            document.getElementById('resetModal').classList.remove('hidden');
+        }
+        
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.add('hidden');
+        }
+        
+        async function confirmReset() {
+            closeResetModal();
+            await fetch('/api/reset-position', { method: 'POST' });
+        }
+        
+        async function clearAllData() {
+            document.getElementById('clearModal').classList.remove('hidden');
+        }
+        
+        function closeClearModal() {
+            document.getElementById('clearModal').classList.add('hidden');
+        }
+        
+        async function confirmClear() {
+            closeClearModal();
+            await fetch('/api/start-over', { method: 'POST' });
+            window.location.reload();
+        }
+        
+        async function saveCueField(cueId, field, value) {
+            const cue = allCues.find(c => c.id === cueId);
+            if (!cue) return;
+            
+            // Always send both required parameters
+            const lineText = field === 'line_text' ? value : (cue.line_text || '');
+            const notes = field === 'notes' ? value : (cue.notes || '');
+            
+            await fetch(`/api/cues/${cueId}?line_text=${encodeURIComponent(lineText)}&notes=${encodeURIComponent(notes)}`, { method: 'PUT' });
+        }
+        
+        async function saveCameraField(cueId, cameraNumber, field, value) {
+            // Get current camera data first
+            const cue = allCues.find(c => c.id === cueId);
+            const camera = cue?.cameras.find(c => c.camera_number === cameraNumber);
+            
+            // Only save if the camera exists (editing existing camera, not creating new)
+            if (!camera) {
+                console.error('Camera not found - this should only be called for existing cameras');
+                return;
+            }
+            
+            // Build the update with all required fields
+            const subject = field === 'subject' ? value : camera.subject;
+            const shotType = field === 'shot_type' ? value : camera.shot_type;
+            const notes = field === 'notes' ? value : (camera.notes || '');
+            
+            await fetch(`/api/camera/${cueId}/${cameraNumber}?subject=${encodeURIComponent(subject)}&shot_type=${encodeURIComponent(shotType)}&notes=${encodeURIComponent(notes)}`, { 
+                method: 'PUT' 
+            });
+        }
+        
+        let cueToDelete = null;
+        
+        async function deleteCueById(cueId, sequenceNumber, lineText) {
+            cueToDelete = cueId;
+            document.getElementById('deleteCueLabel').textContent = `Cue ${sequenceNumber}: ${lineText}`;
+            document.getElementById('deleteCueModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteCueModal() {
+            document.getElementById('deleteCueModal').classList.add('hidden');
+            cueToDelete = null;
+        }
+        
+        async function confirmDeleteCue() {
+            if (!cueToDelete) return;
+            
+            try {
+                const response = await fetch(`/api/cues/${cueToDelete}`, { method: 'DELETE' });
+                if (response.ok) {
+                    closeDeleteCueModal();
+                    await loadCues();
+                } else {
+                    alert('Error deleting cue');
+                }
+            } catch (error) {
+                console.error('Error deleting cue:', error);
+                alert('Error deleting cue: ' + error.message);
+            }
+        }
+        
+        async function addCueAtPosition(position) {
+            try {
+                const state = await fetch('/api/state').then(r => r.json());
+                const targetCueId = state.current_cue_id;
+                
+                const params = new URLSearchParams({
+                    line_text: 'New Cue',
+                    notes: '',
+                    position: position
+                });
+                
+                if (targetCueId && (position === 'before' || position === 'after')) {
+                    params.append('target_cue_id', targetCueId);
+                }
+                
+                console.log('Sending:', params.toString());
+                
+                const response = await fetch('/api/cues', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString()
+                });
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                if (!response.ok) {
+                    const errorDetail = result.detail || result.message || JSON.stringify(result);
+                    const errorMessage = Array.isArray(errorDetail) 
+                        ? errorDetail.map(e => e.msg || e).join(', ')
+                        : errorDetail;
+                    alert(`Error adding cue: ${errorMessage}`);
+                    return;
+                }
+                
+                await loadCues();
+            } catch (error) {
+                console.error('Error adding cue:', error);
+                alert(`Error adding cue: ${error.message}`);
+            }
+        }
+        
+        let selectedCameraNumber = null;
+        
+        let pendingCameras = {};
+        
+        function showAddCameraCard(cueId) {
+            // Initialize pending cameras array if needed
+            if (!pendingCameras[cueId]) {
+                pendingCameras[cueId] = [];
+            }
+            
+            // Add first empty form card if none exist
+            if (pendingCameras[cueId].length === 0) {
+                addNewCameraForm(cueId);
+            }
+        }
+        
+        function addNewCameraForm(cueId) {
+            console.log('Adding new camera form for cue:', cueId);
+            // Initialize pending cameras array if needed
+            if (!pendingCameras[cueId]) {
+                pendingCameras[cueId] = [];
+            }
+            
+            // Add a new empty form card to the pending list
+            pendingCameras[cueId].push({
+                number: null,  // Not selected yet
+                subject: '',
+                shot_type: '',
+                notes: ''
+            });
+            
+            renderPendingCameras(cueId);
+        }
+        
+        function toggleCameraSelection(cueId, cameraNum) {
+            // Find if this camera is already in any pending slot
+            let existingIndex = -1;
+            for (let i = 0; i < pendingCameras[cueId].length; i++) {
+                if (pendingCameras[cueId][i].number === cameraNum) {
+                    existingIndex = i;
+                    break;
+                }
+            }
+            
+            if (existingIndex === -1) {
+                // Find first slot without a camera number assigned
+                for (let i = 0; i < pendingCameras[cueId].length; i++) {
+                    if (pendingCameras[cueId][i].number === null) {
+                        pendingCameras[cueId][i].number = cameraNum;
+                        break;
+                    }
+                }
+            } else {
+                // Remove camera from that slot
+                pendingCameras[cueId][existingIndex].number = null;
+            }
+            
+            renderPendingCameras(cueId);
+        }
+        
+        function renderPendingCameras(cueId) {
+            console.log('Rendering pending cameras for cue:', cueId);
+            const container = document.getElementById(`pending-cameras-${cueId}`);
+            const controls = document.getElementById(`save-controls-${cueId}`);
+            
+            if (!container) {
+                console.error('Pending cameras container not found for cue:', cueId);
+                return;
+            }
+
+            if (!pendingCameras[cueId] || pendingCameras[cueId].length === 0) {
+                container.innerHTML = '';
+                if (controls) {
+                    controls.classList.add('hidden');
+                    controls.classList.remove('flex');
+                }
+                return;
+            }
+            
+            if (controls) {
+                controls.classList.remove('hidden');
+                controls.classList.add('flex');
+            }
+            
+            container.innerHTML = pendingCameras[cueId].map((cam, idx) => `
+                <div class="flex-none w-[250px] p-4 rounded-lg border border-emerald-500/50 bg-emerald-900/10 shadow-lg shadow-emerald-500/5 relative group animate-in fade-in slide-in-from-left-2 duration-200">
+                    <button onclick="removePendingCamera(${cueId}, ${idx})" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-gray-500 hover:text-red-400 flex items-center justify-center transition-colors shadow-xl z-10">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="grid grid-cols-6 gap-0.5">
+                                ${[1,2,3,4,5,6,7,8,9,10,11,12].map(num => `
+                                    <button onclick="toggleCameraSelection(${cueId}, ${num})" 
+                                            class="aspect-square rounded border text-[9px] font-bold transition-all ${
+                                                cam.number === num 
+                                                ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm' 
+                                                : 'border-slate-700 bg-slate-900/50 text-gray-500 hover:border-emerald-500/50 hover:text-gray-300'
+                                            }">
+                                        ${num}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="text-xs text-gray-500 mb-1 block">Subject</label>
+                                <input type="text" id="pending-subject-${cueId}-${idx}" value="${cam.subject}" 
+                                       oninput="updatePendingCamera(${cueId}, ${idx}, 'subject', this.value)"
+                                       placeholder="Subject"
+                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" />
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 mb-1 block">Shot Type</label>
+                                <input type="text" id="pending-shot-${cueId}-${idx}" value="${cam.shot_type}"
+                                       oninput="updatePendingCamera(${cueId}, ${idx}, 'shot_type', this.value)"
+                                       placeholder="Shot Type"
+                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" />
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500 mb-1 block">Notes</label>
+                                <textarea oninput="updatePendingCamera(${cueId}, ${idx}, 'notes', this.value)"
+                                          placeholder="Notes"
+                                          class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-400 text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" rows="2">${cam.notes}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updatePendingCamera(cueId, idx, field, value) {
+            if (pendingCameras[cueId] && pendingCameras[cueId][idx]) {
+                pendingCameras[cueId][idx][field] = value;
+            }
+        }
+        
+        function removePendingCamera(cueId, idx) {
+            if (pendingCameras[cueId]) {
+                pendingCameras[cueId].splice(idx, 1);
+                if (pendingCameras[cueId].length === 0) {
+                    cancelAddCamera(cueId);
+                } else {
+                    renderPendingCameras(cueId);
+                }
+            }
+        }
+        
+        function cancelAddCamera(cueId) {
+            delete pendingCameras[cueId];
+            const container = document.getElementById(`pending-cameras-${cueId}`);
+            if (container) {
+                container.innerHTML = '';
+            }
+            const controls = document.getElementById(`save-controls-${cueId}`);
+            if (controls) controls.classList.add('hidden');
+        }
+        
+        async function saveAllNewCameras(cueId) {
+            if (!pendingCameras[cueId] || pendingCameras[cueId].length === 0) return;
+            
+            let hasError = false;
+            
+            // Validate cameras (only subject is required, shot_type is optional)
+            for (let i = 0; i < pendingCameras[cueId].length; i++) {
+                const cam = pendingCameras[cueId][i];
+                const subjectInput = document.getElementById(`pending-subject-${cueId}-${i}`);
+                
+                subjectInput.classList.remove('border-red-500', 'animate-pulse');
+                
+                if (!cam.subject.trim()) {
+                    subjectInput.classList.add('border-red-500', 'animate-pulse');
+                    hasError = true;
+                }
+            }
+            
+            if (hasError) {
+                setTimeout(() => {
+                    document.querySelectorAll('.animate-pulse').forEach(el => {
+                        el.classList.remove('animate-pulse');
+                    });
+                }, 2000);
+                return;
+            }
+            
+            // Save all cameras
+            try {
+                for (const cam of pendingCameras[cueId]) {
+                    await fetch(`/api/camera/${cueId}/${cam.number}?subject=${encodeURIComponent(cam.subject)}&shot_type=${encodeURIComponent(cam.shot_type)}&notes=${encodeURIComponent(cam.notes)}`, { 
+                        method: 'PUT' 
+                    });
+                }
+                
+                cancelAddCamera(cueId);
+                await loadCues();
+            } catch (error) {
+                console.error('Error saving cameras:', error);
+            }
+        }
+        
+        function openAddCameraModal(cueId) {
+            pendingAddCameraCueId = cueId;
+            const cue = allCues.find(c => c.id === cueId);
+            document.getElementById('addCameraCueNum').textContent = cue ? cue.sequence_number : cueId;
+            document.getElementById('newCameraSubject').value = '';
+            document.getElementById('addCameraModal').classList.remove('hidden');
+        }
+        
+        function closeAddCameraModal() {
+            document.getElementById('addCameraModal').classList.add('hidden');
+            pendingAddCameraCueId = null;
+        }
+        
+        async function confirmAddCamera() {
+            console.log('confirmAddCamera called, pendingAddCameraCueId:', pendingAddCameraCueId);
+            if (!pendingAddCameraCueId) return;
+            
+            const cameraNum = document.getElementById('newCameraNumber').value;
+            console.log('Adding camera:', cameraNum, 'to cue:', pendingAddCameraCueId);
+            const subject = document.getElementById('newCameraSubject').value.trim();
+            const shotType = document.getElementById('newCameraShotType').value.trim();
+            const notes = document.getElementById('newCameraNotes').value.trim();
+            
+            if (!subject || !shotType) {
+                // Just return silently - user can see required fields
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/camera/${pendingAddCameraCueId}/${cameraNum}?subject=${encodeURIComponent(subject)}&shot_type=${encodeURIComponent(shotType)}&notes=${encodeURIComponent(notes)}`, { 
+                    method: 'PUT' 
+                });
+                
+                if (response.ok) {
+                    console.log('Camera added successfully');
+                    closeAddCameraModal();
+                    await loadCues();
+                }
+            } catch (error) {
+                console.error('Error adding camera:', error);
+            }
+        }
+        
+        async function toggleTake(cueId, cameraNumber, event) {
+            event.stopPropagation();
+            const button = event.target;
+            button.style.opacity = '0.5';
+            
+            try {
+                const response = await fetch(`/api/camera/${cueId}/${cameraNumber}/toggle-take`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    console.log('Camera added successfully');
+                    const result = await response.json();
+                    // Update the button immediately
+                    const isExpectedTake = result.expected_take;
+                    if (isExpectedTake) {
+                        button.className = 'text-xs px-2 py-1 rounded bg-red-900 hover:bg-red-800 text-red-200 transition-colors';
+                        button.innerHTML = '⭐ Remove Take';
+                    } else {
+                        button.className = 'text-xs px-2 py-1 rounded bg-blue-900 hover:bg-blue-800 text-blue-200 transition-colors';
+                        button.innerHTML = '☐ Set as Take';
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling take:', error);
+            } finally {
+                button.style.opacity = '1';
+            }
+        }
+        
+        function openDeleteCameraModal(cueId, cameraNumber) {
+            const cue = allCues.find(c => c.id === cueId);
+            pendingDeleteCameraInfo = { cueId, cameraNumber };
+            document.getElementById('deleteCameraNum').textContent = cameraNumber;
+            document.getElementById('deleteCameraNumText').textContent = cameraNumber;
+            document.getElementById('deleteCameraCueNum').textContent = cue ? cue.sequence_number : cueId;
+            document.getElementById('deleteCameraModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteCameraModal() {
+            document.getElementById('deleteCameraModal').classList.add('hidden');
+            pendingDeleteCameraInfo = null;
+        }
+        
+        async function confirmDeleteCamera() {
+            if (!pendingDeleteCameraInfo) return;
+            
+            const { cueId, cameraNumber } = pendingDeleteCameraInfo;
+            closeDeleteCameraModal();
+            
+            try {
+                const response = await fetch(`/api/camera/${cueId}/${cameraNumber}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await loadCues();
+                }
+            } catch (error) {
+                console.error('Error deleting camera:', error);
+            }
+        }
+        
+        function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                navigator.wakeLock.request('screen').catch(() => {});
+            }
+        }
+        
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && ws?.readyState === WebSocket.CLOSED) {
+                connect();
+            }
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (!document.getElementById('resetModal').classList.contains('hidden')) {
+                    confirmReset();
+                } else if (!document.getElementById('clearModal').classList.contains('hidden')) {
+                    confirmClear();
+                } else if (!document.getElementById('addCameraModal').classList.contains('hidden')) {
+                    confirmAddCamera();
+                } else if (!document.getElementById('deleteCameraModal').classList.contains('hidden')) {
+                    confirmDeleteCamera();
+                }
+            }
+
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                advance();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                previous();
+            }
+        });
+        
+        // Start loading data immediately
+        loadCues(true, 'instant');
+        loadSettings();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            connect();
+            requestWakeLock();
+        });
+        
+        connect();
+    </script>
+</body>
+</html>

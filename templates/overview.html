@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>Cue Overview - Camera Cue System</title>
+    <script src="/static/vendor/tailwindcss.js"></script>
+    <script defer src="/static/vendor/lucide.js"></script>
+    <style>
+        .bg-header { background: rgb(12, 35, 64); }
+        .bg-cue-item { background: #2a2a2a; }
+        .bg-cue-item:hover { background: #333; border-left-color: rgb(12, 35, 64); }
+        .bg-cue-current { background: rgb(12, 35, 64); border-left-color: #4a9eff; }
+        .border-cue-default { border-left-color: #444; }
+        .text-cue-number { color: #888; }
+        .text-cue-current { color: #fff; }
+        .bg-jump-btn { background: rgb(12, 35, 64); }
+        .bg-jump-btn:hover { background: #1a4a8a; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans p-5">
+    <!-- Header with Aladdin Jr title and home button -->
+    <header class="bg-slate-800 rounded-lg p-4 mb-5 flex justify-between items-center max-w-4xl mx-auto border border-slate-700">
+        <a href="/" class="text-2xl font-bold text-white hover:text-blue-400 transition-colors flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+            <span id="serviceName">Loading...</span>
+        </a>
+        <h1 class="text-xl font-semibold">Cue Overview</h1>
+    </header>
+    
+    <div class="bg-gray-800 rounded-lg p-4 mb-5 flex gap-8 justify-center items-center text-sm max-w-4xl mx-auto sticky top-0 z-10">
+        <div class="flex gap-2">
+            <span class="text-gray-500">Total Cues:</span>
+            <span class="text-white font-semibold" id="totalCues">-</span>
+        </div>
+        <div class="flex gap-2">
+            <span class="text-gray-500">Current:</span>
+            <span class="text-white font-semibold" id="currentCue">-</span>
+        </div>
+        <div class="flex gap-2">
+            <span class="text-gray-500">Remaining:</span>
+            <span class="text-white font-semibold" id="remainingCues">-</span>
+        </div>
+        <button class="bg-jump-btn text-white border-none px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-blue-700 hover:-translate-y-0.5" onclick="jumpToCurrentCue()">Jump to Current</button>
+        <button id="followBtn" class="text-white border-none px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:-translate-y-0.5" onclick="toggleFollow()" style="background: #444;">Follow Current</button>
+    </div>
+    
+    <div class="grid gap-2.5 max-w-4xl mx-auto" id="cueList">
+        <div class="text-center py-10 text-gray-500 text-lg">Loading cues...</div>
+    </div>
+    
+    <script>
+        let currentCueId = null;
+        let followMode = false;
+        
+        async function loadCues() {
+            try {
+                const stateResponse = await fetch('/api/state');
+                const state = await stateResponse.json();
+                currentCueId = state?.current_cue_id || null;
+                
+                const cuesResponse = await fetch('/api/cues/all');
+                const cues = await cuesResponse.json();
+                
+                const currentIndex = cues.findIndex(c => c.id === currentCueId);
+                document.getElementById('totalCues').textContent = cues.length;
+                document.getElementById('currentCue').textContent = currentIndex >= 0 ? `#${cues[currentIndex].sequence_number}` : '-';
+                document.getElementById('remainingCues').textContent = currentIndex >= 0 ? cues.length - currentIndex - 1 : '-';
+                
+                const cueList = document.getElementById('cueList');
+                cueList.innerHTML = cues.map(cue => `
+                    <div class="bg-cue-item rounded-lg p-3 pl-4 border-l-4 border-cue-default grid grid-cols-[60px_1fr] gap-4 items-center transition-all ${cue.id === currentCueId ? 'bg-cue-current border-cue-current' : ''}" id="cue-${cue.id}">
+                        <div class="text-xl font-bold text-center ${cue.id === currentCueId ? 'text-cue-current' : 'text-cue-number'}">Cue ${cue.sequence_number}</div>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-base font-medium">${escapeHtml(cue.line_text)}</div>
+                            ${cue.notes ? `<div class="text-sm text-gray-400 italic">${escapeHtml(cue.notes)}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading cues:', error);
+                document.getElementById('cueList').innerHTML = '<div class="text-center py-10 text-gray-500">Error loading cues</div>';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function jumpToCurrentCue() {
+            const currentElement = document.querySelector('.bg-cue-current');
+            if (currentElement) {
+                currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        function toggleFollow() {
+            followMode = !followMode;
+            const followBtn = document.getElementById('followBtn');
+            if (followMode) {
+                followBtn.style.background = 'rgb(12, 35, 64)';
+                followBtn.textContent = 'Following';
+                jumpToCurrentCue();
+            } else {
+                followBtn.style.background = '#444';
+                followBtn.textContent = 'Follow Current';
+            }
+        }
+        
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings/script_name');
+                const data = await response.json();
+                if (data.value) {
+                    document.getElementById('serviceName').textContent = data.value;
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings(); // Load settings immediately
+            const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                // Connection established
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'ping') return;
+                
+                if (data.type === 'state_update') {
+                if (data.state && data.state.script_name) {
+                    document.getElementById('serviceName').textContent = data.state.script_name;
+                }
+                fetch('/api/state')
+                    .then(r => r.json())
+                    .then(state => {
+                        if (!state || !state.current_cue_id) return;
+                        
+                        document.querySelectorAll('.bg-cue-current').forEach(el => {
+                            el.classList.remove('bg-cue-current', 'border-cue-current');
+                            el.classList.add('bg-cue-item', 'border-cue-default');
+                            const numDiv = el.querySelector('div:first-child');
+                            if (numDiv) numDiv.classList.remove('text-cue-current');
+                            if (numDiv) numDiv.classList.add('text-cue-number');
+                        });
+                        
+                        const newCurrentElement = document.getElementById(`cue-${state.current_cue_id}`);
+                        if (newCurrentElement) {
+                            newCurrentElement.classList.remove('bg-cue-item', 'border-cue-default');
+                            newCurrentElement.classList.add('bg-cue-current', 'border-cue-current');
+                            const numDiv = newCurrentElement.querySelector('div:first-child');
+                            if (numDiv) numDiv.classList.remove('text-cue-number');
+                            if (numDiv) numDiv.classList.add('text-cue-current');
+                            
+                            // Auto-scroll if follow mode is enabled
+                            if (followMode) {
+                                newCurrentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }
+                        
+                        currentCueId = state.current_cue_id;
+                        const allCues = Array.from(document.querySelectorAll('[id^="cue-"]'));
+                        const currentIndex = allCues.findIndex(el => el.id === `cue-${currentCueId}`);
+                        if (currentIndex >= 0) {
+                            const cueNumber = allCues[currentIndex].querySelector('div:first-child').textContent;
+                            document.getElementById('currentCue').textContent = `#${cueNumber}`;
+                            document.getElementById('remainingCues').textContent = allCues.length - currentIndex - 1;
+                        }
+                    });
+            } else if (data.type === 'setting_updated' && data.key === 'script_name') {
+                document.getElementById('serviceName').textContent = data.value;
+            } else if (data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
+                loadCues();
+            }
+        };
+        
+        ws.onclose = () => {
+            setTimeout(() => window.location.reload(), 3000);
+        };
+        
+        loadCues();
+    });
+    </script>
+</body>
+</html>
