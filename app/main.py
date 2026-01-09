@@ -14,6 +14,7 @@ import json
 import asyncio
 import logging
 from typing import Set, Optional
+from pathlib import Path
 import os
 import aiosqlite
 import csv
@@ -781,3 +782,132 @@ async def update_setting(key: str, request: Request):
         return {"success": True, "key": key, "value": value}
     except Exception as e:
         return {"success": False, "message": f"Failed to update setting: {str(e)}"}
+
+
+@app.post("/api/backup")
+async def create_backup():
+    """Create a backup of the current database"""
+    try:
+        backup_filename = await db.create_backup()
+        return {"success": True, "filename": backup_filename}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to create backup: {str(e)}"}
+
+
+@app.get("/api/backups")
+async def list_backups():
+    """Get list of available backups"""
+    try:
+        backups = await db.list_backups()
+        return {"success": True, "backups": backups, "backup_count": db.BACKUP_COUNT}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to list backups: {str(e)}"}
+
+
+@app.post("/api/backup/restore/{filename}")
+async def restore_backup(filename: str):
+    """Restore database from a backup file"""
+    try:
+        await db.restore_backup(filename)
+        return {
+            "success": True,
+            "message": "Database restored successfully. Refresh the page to see the restored data.",
+        }
+    except FileNotFoundError as e:
+        return {"success": False, "message": str(e)}
+    except ValueError as e:
+        return {"success": False, "message": str(e)}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to restore backup: {str(e)}"}
+
+
+@app.post("/api/backup/upload")
+async def upload_backup(file: UploadFile = File(...)):
+    """Upload a backup file"""
+    try:
+        filename = file.filename
+
+        if not filename:
+            return {"success": False, "message": "No file provided"}
+
+        if not filename.endswith(".db"):
+            return {"success": False, "message": "File must have .db extension"}
+
+        if not filename.startswith("camerasheet_backup_"):
+            filename = f"camerasheet_backup_{filename}"
+
+        backup_path = Path(db.BACKUP_DIR) / filename
+
+        Path(db.BACKUP_DIR).mkdir(exist_ok=True)
+
+        content = await file.read()
+        with open(backup_path, "wb") as f:
+            f.write(content)
+
+        await db.cleanup_old_backups()
+
+        return {"success": True, "filename": filename}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to upload backup: {str(e)}"}
+
+
+@app.get("/api/backups/{filename}")
+async def download_backup(filename: str):
+    """Download a specific backup file"""
+    try:
+        backup_path = Path(db.BACKUP_DIR) / filename
+
+        if not backup_path.exists():
+            return {"success": False, "message": "Backup file not found"}
+
+        if not filename.startswith("camerasheet_backup_") or not filename.endswith(
+            ".db"
+        ):
+            return {"success": False, "message": "Invalid filename"}
+
+        def iterfile():
+            with open(backup_path, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/x-sqlite3",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        return {"success": False, "message": f"Failed to download backup: {str(e)}"}
+
+
+@app.delete("/api/backups/{filename}")
+async def delete_backup(filename: str):
+    """Delete a specific backup"""
+    try:
+        success = await db.delete_backup(filename)
+        if success:
+            return {"success": True, "message": "Backup deleted"}
+        else:
+            return {"success": False, "message": "Backup not found or invalid"}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to delete backup: {str(e)}"}
+
+
+@app.get("/api/export/db")
+async def export_db():
+    """Export the database file for download"""
+    try:
+        if not os.path.exists(db.DB_PATH):
+            return {"success": False, "message": "Database file not found"}
+
+        def iterfile():
+            with open(db.DB_PATH, "rb") as f:
+                while chunk := f.read(8192):
+                    yield chunk
+
+        return StreamingResponse(
+            iterfile(),
+            media_type="application/x-sqlite3",
+            headers={"Content-Disposition": f"attachment; filename=camerasheet.db"},
+        )
+    except Exception as e:
+        return {"success": False, "message": f"Failed to export database: {str(e)}"}
