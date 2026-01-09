@@ -35,7 +35,7 @@
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onkeydown="if(event.key==='Enter') updateServiceName()"
                 />
-                <p class="text-sm text-gray-500 mt-1">This name appears on all views</p>
+                <p class="text-sm text-gray-300 mt-1">This name appears on all views</p>
             </div>
             <button class="px-6 py-3 bg-blue-600 text-white border-none rounded-lg text-base font-medium cursor-pointer transition-all hover:bg-blue-700" onclick="updateServiceName()">Update Service Name</button>
             <div id="settingsStatus" class="mt-4 p-4 rounded-lg hidden"></div>
@@ -578,7 +578,7 @@
                         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div>
                                 <div class="font-medium text-gray-800">${backup.filename}</div>
-                                <div class="text-sm text-gray-500">
+                                <div class="text-sm text-gray-300">
                                     ${new Date(backup.created_at).toLocaleString()} · ${(backup.size / 1024).toFixed(1)} KB
                                 </div>
                             </div>
@@ -605,11 +605,11 @@
                         btn.addEventListener('click', () => deleteBackup(btn.dataset.filename));
                     });
                 } else {
-                    listEl.innerHTML = '<p class="text-gray-500 italic">No backups available</p>';
+                    listEl.innerHTML = '<p class="text-gray-300 italic">No backups available</p>';
                 }
             } catch (error) {
                 console.error('Error loading backups:', error);
-                listEl.innerHTML = '<p class="text-gray-500 italic">Failed to load backups</p>';
+                listEl.innerHTML = '<p class="text-gray-300 italic">Failed to load backups</p>';
             }
         }
 

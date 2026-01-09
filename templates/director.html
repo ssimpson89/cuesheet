@@ -37,7 +37,7 @@
         </a>
         <div>
             <h1 class="text-xl font-semibold">Director View</h1>
-            <div id="scriptName" class="text-sm text-gray-500">Loading...</div>
+            <div id="scriptName" class="text-sm text-gray-300">Loading...</div>
         </div>
     </header>
     
@@ -47,7 +47,7 @@
         
         <!-- Current Cue Section -->
         <div id="currentCue" class="mb-8">
-            <p class="text-center text-gray-500 py-10">Loading...</p>
+            <p class="text-center text-gray-300 py-10">Loading...</p>
         </div>
         
         <!-- Upcoming Cues Section -->
@@ -146,7 +146,7 @@
                             ${activeCameras.map(cam => renderCameraCard(cam, true)).join('')}
                         </div>
                     ` : `
-                        <div class="text-center py-8 text-gray-500 bg-gray-800/50 rounded-lg border border-gray-700">
+                        <div class="text-center py-8 text-gray-300 bg-gray-800/50 rounded-lg border border-gray-700">
                             <div class="text-4xl mb-2 opacity-50">📹</div>
                             <div>No camera assignments for this cue</div>
                         </div>
@@ -154,7 +154,7 @@
                 `;
             } else {
                 document.getElementById('currentCue').innerHTML = `
-                    <div class="text-center py-16 text-gray-500">
+                    <div class="text-center py-16 text-gray-300">
                         <div class="text-5xl mb-4 opacity-50">🎬</div>
                         <div class="text-xl">No current cue</div>
                     </div>
@@ -165,11 +165,11 @@
             if (upcomingCues.length > 0) {
                 document.getElementById('upcomingSection').innerHTML = `
                     <div class="border-t-2 border-gray-800 pt-8">
-                        <h2 class="text-xl font-bold text-gray-400 uppercase tracking-wide mb-6 flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        <h2 class="text-2xl font-bold text-gray-200 uppercase tracking-wide mb-6 flex items-center gap-2">
+                            <svg class="w-7 h-7 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
                             </svg>
-                            Upcoming Cues
+                            Current Cue
                         </h2>
                         <div class="space-y-4">
                             ${upcomingCues.map(cue => renderUpcomingCue(cue)).join('')}
@@ -179,8 +179,8 @@
             } else {
                 document.getElementById('upcomingSection').innerHTML = `
                     <div class="border-t-2 border-gray-800 pt-8">
-                        <h2 class="text-xl font-bold text-gray-400 uppercase tracking-wide mb-6">Upcoming Cues</h2>
-                        <div class="text-center py-8 text-gray-500">No more cues</div>
+                        <h2 class="text-2xl font-bold text-gray-200 uppercase tracking-wide mb-6">Upcoming Cues</h2>
+                        <div class="text-center py-8 text-gray-300">No more cues</div>
                     </div>
                 `;
             }
@@ -189,17 +189,17 @@
         function renderCameraCard(cam, isCurrent) {
             const isActive = cam.expected_take;
             const bgColor = isActive ? 'bg-gradient-to-br from-red-900 to-orange-900 border-2 border-red-500' : 'bg-gray-800 border-2 border-gray-700';
-            const badgeColor = isActive ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-gray-300';
+            const badgeColor = isActive ? 'bg-red-600 text-white animate-pulse' : 'bg-gray-700 text-white';
             
             return `
-                <div class="${bgColor} rounded-lg p-4 transition-all hover:scale-105">
+                <div class="${bgColor} rounded-lg p-5 transition-all hover:scale-105">
                     <div class="flex items-center justify-between mb-3">
-                        <div class="${badgeColor} px-3 py-1 rounded-lg text-xs font-bold">CAM ${cam.camera_number}</div>
-                        ${isActive ? '<div class="text-red-400 text-xs font-bold">⭐ TAKE</div>' : ''}
+                        <div class="${badgeColor} px-4 py-1.5 rounded-lg text-sm font-bold">CAM ${cam.camera_number}</div>
+                        ${isActive ? '<div class="text-red-400 text-sm font-bold">⭐ TAKE</div>' : ''}
                     </div>
-                    <div class="${isActive ? 'text-white' : 'text-gray-200'} text-lg font-bold mb-2 leading-tight">${cam.subject}</div>
-                    ${cam.shot_type ? `<div class="bg-black/30 text-gray-300 text-sm px-2 py-1 rounded inline-block">${cam.shot_type}</div>` : ''}
-                    ${cam.camera_notes ? `<div class="mt-2 text-amber-300 text-xs bg-amber-900/30 px-2 py-1 rounded">${cam.camera_notes}</div>` : ''}
+                    <div class="${isActive ? 'text-white' : 'text-white'} text-xl font-bold mb-2 leading-tight">${cam.subject}</div>
+                    ${cam.shot_type ? `<div class="bg-black/30 text-gray-100 text-base px-2 py-1 rounded inline-block font-semibold">${cam.shot_type}</div>` : ''}
+                    ${cam.camera_notes ? `<div class="mt-2 text-amber-100 text-sm bg-amber-900/40 px-2 py-1 rounded border border-amber-700/50">${cam.camera_notes}</div>` : ''}
                 </div>
             `;
         }
@@ -219,13 +219,13 @@
                         <div class="flex gap-2 flex-wrap">
                             ${activeCameras.map(cam => `
                                 <div class="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-sm flex items-center gap-2">
-                                    <span class="text-orange-400 font-bold">Cam ${cam.camera_number}:</span>
-                                    <span class="text-gray-200">${cam.subject}</span>
+                                    <span class="text-orange-300 font-bold">Cam ${cam.camera_number}:</span>
+                                    <span class="text-white">${cam.subject}</span>
                                     ${cam.expected_take ? '<span class="text-red-400 text-xs">⭐</span>' : ''}
                                 </div>
                             `).join('')}
                         </div>
-                    ` : '<div class="text-gray-500 text-sm">No camera assignments</div>'}
+                    ` : '<div class="text-gray-300 text-sm">No camera assignments</div>'}
                 </div>
             `;
         }

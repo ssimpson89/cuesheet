@@ -30,19 +30,19 @@
 </head>
 <body class="bg-black text-white font-sans flex flex-col m-0 p-0 overflow-hidden" style="height: 100vh; height: 100dvh;">
     <!-- Header - Compact for mobile -->
-    <header class="bg-gray-900 px-2 py-1.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
-        <a href="/" class="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <header class="bg-gray-900 px-3 py-2.5 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <a href="/" class="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
             </svg>
-            <span id="serviceName" class="text-xs font-semibold hidden sm:inline">Loading...</span>
+            <span id="serviceName" class="text-sm font-semibold hidden sm:inline">Loading...</span>
         </a>
-        <div class="text-xl font-bold text-blue-400">CAM {{CAMERA_NUMBER}}</div>
-        <div id="status" class="text-sm font-bold px-3 py-1 rounded-full">Connecting...</div>
+        <div class="text-2xl font-bold text-blue-400">CAM {{CAMERA_NUMBER}}</div>
+        <div id="status" class="text-base font-bold px-4 py-1.5 rounded-full">Connecting...</div>
     </header>
     
-    <main id="main" class="flex-1 overflow-y-auto p-2 min-h-0">
-        <div id="cues-container" class="h-full flex flex-col gap-2"></div>
+    <main id="main" class="flex-1 overflow-y-auto p-3 min-h-0">
+        <div id="cues-container" class="h-full flex flex-col gap-3"></div>
     </main>
     
     <div id="wakeLock" class="fixed bottom-4 right-4 w-2.5 h-2.5 bg-blue-900 rounded-full opacity-40"></div>
@@ -96,14 +96,14 @@
             
             ws.onopen = () => {
                 document.getElementById('status').textContent = '● Live';
-                document.getElementById('status').className = 'text-sm font-bold px-3 py-1 rounded-full bg-green-900 text-green-300 border border-green-600';
+                document.getElementById('status').className = 'text-base font-bold px-4 py-1.5 rounded-full bg-green-900 text-green-300 border border-green-600';
                 // loadCues(); // Data is already loaded by the immediate call
                 showWakeLockPrompt(); // Show prompt instead of auto-requesting
             };
             
             ws.onclose = () => {
                 document.getElementById('status').textContent = '○ Offline';
-                document.getElementById('status').className = 'text-sm font-bold px-3 py-1 rounded-full bg-red-900 text-red-300 border border-red-600 animate-pulse';
+                document.getElementById('status').className = 'text-base font-bold px-4 py-1.5 rounded-full bg-red-900 text-red-300 border border-red-600 animate-pulse';
                 setTimeout(connect, 2000);
             };
             
@@ -152,9 +152,9 @@
             
             if (cues.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-16 text-gray-600">
-                        <div class="text-5xl mb-4 opacity-50">✓</div>
-                        <div>No more cues</div>
+                    <div class="text-center py-16 text-gray-300">
+                        <div class="text-6xl mb-4 opacity-50">✓</div>
+                        <div class="text-xl">No more cues</div>
                     </div>
                 `;
                 return;
@@ -189,7 +189,7 @@
             if (!cue) {
                 return `
                     <div class="flex-1 flex flex-col rounded border border-gray-700 p-3 min-h-0">
-                        <div class="text-center text-gray-500 text-sm">No current cue</div>
+                        <div class="text-center text-gray-300 text-sm">No current cue</div>
                     </div>
                 `;
             }
@@ -199,53 +199,53 @@
             // Light blue when not this camera's shot
             if (!hasAssignment) {
                 return `
-                    <div class="flex-1 flex flex-col rounded border border-blue-900/30 bg-blue-950/20 p-3 min-h-0">
-                        <div class="text-blue-400/60 text-xs font-semibold mb-1">CURRENT</div>
-                        <div class="flex items-baseline gap-2 mb-2">
-                            <span class="text-blue-400/60 text-2xl font-mono font-bold">${cue.sequence_number}</span>
-                            <span class="text-blue-300/60 text-xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                    <div class="flex-1 flex flex-col rounded border border-blue-900/30 bg-blue-950/20 p-4 min-h-0">
+                        <div class="text-blue-400/60 text-sm font-semibold mb-2">CURRENT</div>
+                        <div class="flex items-baseline gap-2 mb-3">
+                            <span class="text-blue-400/60 text-3xl font-mono font-bold">${cue.sequence_number}</span>
+                            <span class="text-blue-300/60 text-2xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
                         </div>
-                        ${cue.notes ? `<div class="text-blue-300/50 text-xs mb-1 leading-tight">${cue.notes}</div>` : ''}
-                        <div class="text-blue-400/50 text-sm italic">Not your shot</div>
+                        ${cue.notes ? `<div class="text-blue-300/50 text-sm mb-2 leading-tight">${cue.notes}</div>` : ''}
+                        <div class="text-blue-400/50 text-base italic">Not your shot</div>
                     </div>
                 `;
             }
             
             // Soft Red when it IS this camera's shot
             return `
-                <div class="flex-1 flex flex-col rounded border-2 border-red-800/50 bg-red-950/40 p-3 shadow-lg shadow-red-900/20 min-h-0 overflow-y-auto">
-                    <div class="text-red-300/80 text-xs font-semibold mb-1.5">NOW</div>
+                <div class="flex-1 flex flex-col rounded border-2 border-red-800/50 bg-red-950/40 p-4 shadow-lg shadow-red-900/20 min-h-0 overflow-y-auto">
+                    <div class="text-red-300/80 text-sm font-semibold mb-2">NOW</div>
                     
                     <!-- Cue Number and Title -->
-                    <div class="flex items-baseline gap-2 mb-3">
-                        <span class="text-white text-3xl font-mono font-bold leading-none">${cue.sequence_number}</span>
-                        <span class="text-white text-2xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                    <div class="flex items-baseline gap-2 mb-4">
+                        <span class="text-white text-4xl font-mono font-bold leading-none">${cue.sequence_number}</span>
+                        <span class="text-white text-3xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
                     </div>
                     
                     <!-- Most Important: Camera Subject (what you're shooting) -->
-                    <div class="bg-black/30 rounded p-2 mb-2 border-l-2 border-red-600/50">
-                        <div class="text-red-300 text-xs font-semibold mb-0.5">SUBJECT</div>
-                        <div class="text-red-50 text-2xl font-bold leading-tight">${cue.subject}</div>
+                    <div class="bg-black/30 rounded p-3 mb-3 border-l-2 border-red-600/50">
+                        <div class="text-red-200 text-sm font-bold mb-1">SUBJECT</div>
+                        <div class="text-red-50 text-3xl font-bold leading-tight">${cue.subject}</div>
                     </div>
                     
                     <!-- Shot Type -->
                     ${cue.shot_type ? `
-                        <div class="bg-black/20 rounded p-2 mb-2">
-                            <div class="text-red-300/70 text-xs font-semibold mb-0.5">SHOT</div>
-                            <div class="text-white text-lg font-semibold leading-tight">${cue.shot_type}</div>
+                        <div class="bg-black/20 rounded p-3 mb-3">
+                            <div class="text-red-200 text-sm font-bold mb-1">SHOT</div>
+                            <div class="text-white text-xl font-semibold leading-tight">${cue.shot_type}</div>
                         </div>
                     ` : ''}
                     
                     <!-- Camera Notes (Important) -->
                     ${cue.camera_notes ? `
-                        <div class="bg-red-900/20 rounded p-2 mb-2 border-l-2 border-red-700/50">
-                            <div class="text-red-200 text-xs font-semibold mb-0.5">NOTES</div>
-                            <div class="text-red-100 text-base leading-tight">${cue.camera_notes}</div>
+                        <div class="bg-red-900/20 rounded p-3 mb-3 border-l-2 border-red-700/50">
+                            <div class="text-red-100 text-sm font-bold mb-1">NOTES</div>
+                            <div class="text-red-50 text-lg leading-tight">${cue.camera_notes}</div>
                         </div>
                     ` : ''}
                     
                     <!-- Less Important: Scene Info -->
-                    ${cue.notes ? `<div class="text-red-200/60 text-xs mt-1 leading-tight">${cue.notes}</div>` : ''}
+                    ${cue.notes ? `<div class="text-red-200/60 text-sm mt-2 leading-tight">${cue.notes}</div>` : ''}
                 </div>
             `;
         }
@@ -253,9 +253,9 @@
         function renderNextPane(nextShot, distance) {
             if (!nextShot) {
                 return `
-                    <div class="flex-1 flex flex-col rounded border border-gray-700 p-2 min-h-0">
-                        <div class="text-gray-500 text-xs font-semibold mb-1">NEXT</div>
-                        <div class="text-center text-gray-500 text-sm">No upcoming</div>
+                    <div class="flex-1 flex flex-col rounded border border-gray-700 p-3 min-h-0">
+                        <div class="text-gray-300 text-sm font-semibold mb-2">NEXT</div>
+                        <div class="text-center text-gray-300 text-base">No upcoming</div>
                     </div>
                 `;
             }
@@ -265,47 +265,47 @@
             const badgeText = isClose ? 'READY' : 'NEXT';
             const bgColor = isClose ? 'bg-orange-500/10' : 'bg-gray-900/30';
             const borderColor = isClose ? 'border-orange-400/60 border-2' : 'border-gray-700 border';
-            const textColor = isClose ? 'text-orange-200' : 'text-gray-400';
+            const textColor = isClose ? 'text-orange-200' : 'text-gray-200';
             const subjectColor = isClose ? 'text-white' : 'text-gray-200';
-            const badgeColor = isClose ? 'bg-orange-400/20 text-orange-300 border border-orange-400/40' : 'bg-gray-800 text-gray-400';
+            const badgeColor = isClose ? 'bg-orange-400/20 text-orange-300 border border-orange-400/40' : 'bg-gray-800 text-gray-200';
             
             return `
-                <div class="flex-1 flex flex-col rounded ${bgColor} border ${borderColor} p-2 min-h-0 overflow-y-auto">
-                    <div class="flex items-center justify-between mb-1.5">
-                        <div class="${textColor} text-xs font-semibold">${badgeText}</div>
-                        <div class="${badgeColor} px-2 py-0.5 rounded text-xs font-bold ${isClose ? 'animate-pulse' : ''}">${distance === 1 ? 'UP NEXT' : `${distance} cues left`}</div>
+                <div class="flex-1 flex flex-col rounded ${bgColor} border ${borderColor} p-3 min-h-0 overflow-y-auto">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="${textColor} text-sm font-semibold">${badgeText}</div>
+                        <div class="${badgeColor} px-3 py-1 rounded text-sm font-bold ${isClose ? 'animate-pulse' : ''}">${distance === 1 ? 'UP NEXT' : `${distance} cues left`}</div>
                     </div>
                     
                     <!-- Cue Number and Title -->
-                    <div class="flex items-baseline gap-2 mb-2">
-                        <span class="${textColor} text-xl font-mono font-bold leading-none">${nextShot.sequence_number}</span>
-                        <span class="${textColor} text-lg font-bold flex-1 leading-tight">${nextShot.line_text || 'Untitled'}</span>
+                    <div class="flex items-baseline gap-2 mb-3">
+                        <span class="${textColor} text-2xl font-mono font-bold leading-none">${nextShot.sequence_number}</span>
+                        <span class="${textColor} text-xl font-bold flex-1 leading-tight">${nextShot.line_text || 'Untitled'}</span>
                     </div>
                     
                     <!-- Most Important: Camera Subject -->
-                    <div class="bg-black/30 rounded p-2 mb-1.5 border-l-2 ${isClose ? 'border-orange-400/70' : 'border-gray-600'}">
-                        <div class="${isClose ? 'text-orange-300' : 'text-gray-400'} text-xs font-semibold mb-0.5">SUBJECT</div>
-                        <div class="${subjectColor} text-xl font-bold leading-tight">${nextShot.subject}</div>
+                    <div class="bg-black/30 rounded p-3 mb-2 border-l-2 ${isClose ? 'border-orange-400/70' : 'border-gray-600'}">
+                        <div class="${isClose ? 'text-orange-200' : 'text-gray-200'} text-sm font-bold mb-1">SUBJECT</div>
+                        <div class="${subjectColor} text-2xl font-bold leading-tight">${nextShot.subject}</div>
                     </div>
                     
                     <!-- Shot Type -->
                     ${nextShot.shot_type ? `
-                        <div class="bg-black/20 rounded p-1.5 mb-1.5">
-                            <div class="${textColor} text-xs font-semibold mb-0.5">SHOT</div>
-                            <div class="${textColor} text-sm font-semibold leading-tight">${nextShot.shot_type}</div>
+                        <div class="bg-black/20 rounded p-2 mb-2">
+                            <div class="${textColor} text-sm font-bold mb-1">SHOT</div>
+                            <div class="${textColor} text-base font-semibold leading-tight">${nextShot.shot_type}</div>
                         </div>
                     ` : ''}
                     
                     <!-- Camera Notes -->
                     ${nextShot.camera_notes ? `
-                        <div class="bg-orange-400/10 rounded p-1.5 mb-1.5 border-l-2 border-orange-400/40">
-                            <div class="text-orange-200 text-xs font-semibold mb-0.5">NOTES</div>
-                            <div class="text-orange-100 text-sm leading-tight">${nextShot.camera_notes}</div>
+                        <div class="bg-orange-400/10 rounded p-2 mb-2 border-l-2 border-orange-400/40">
+                            <div class="text-orange-100 text-sm font-bold mb-1">NOTES</div>
+                            <div class="text-orange-50 text-base leading-tight">${nextShot.camera_notes}</div>
                         </div>
                     ` : ''}
                     
                     <!-- Less Important: Scene Info -->
-                    ${nextShot.notes ? `<div class="${textColor} opacity-70 text-xs mt-1 leading-tight">${nextShot.notes}</div>` : ''}
+                    ${nextShot.notes ? `<div class="${textColor} opacity-70 text-sm mt-1 leading-tight">${nextShot.notes}</div>` : ''}
                 </div>
             `;
         }
