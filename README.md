@@ -64,10 +64,17 @@ uvicorn app.main:app --reload
 
 4. Access the application at `http://localhost:8000`
 
-## Container Configuration
+## Configuration
 
-**Environment Variables:**
-- `DB_PATH`: Database file location (default: `/app/data/camerasheet.db` in container, `camerasheet.db` locally)
+### Environment Variables
+
+| Variable | Description | Default Value | Notes |
+|----------|-------------|---------------|-------|
+| `DB_PATH` | Database file location | `/app/data/camerasheet.db` (container)<br>`camerasheet.db` (local) | Path to SQLite database file |
+| `BACKUP_DIR` | Backup files directory | `backups` | Directory where database backups are stored |
+| `BACKUP_COUNT` | Number of backups to retain | `10` | Maximum number of automatic backups to keep |
+
+### Container Configuration
 
 **Volumes:**
 - `/app/data`: Database persistence directory

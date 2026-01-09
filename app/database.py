@@ -1,6 +1,7 @@
 import aiosqlite
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -590,3 +591,98 @@ async def create_cue_at_position(
 
         await db.commit()
         return cue_id
+
+
+BACKUP_DIR = os.getenv("BACKUP_DIR", "backups")
+BACKUP_COUNT = int(os.getenv("BACKUP_COUNT", "10"))
+
+
+async def create_backup():
+    """Create a backup of the current database"""
+    import shutil
+    from datetime import datetime
+
+    Path(BACKUP_DIR).mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"camerasheet_backup_{timestamp}.db"
+    backup_path = Path(BACKUP_DIR) / backup_filename
+
+    shutil.copy(DB_PATH, backup_path)
+
+    await cleanup_old_backups()
+
+    return backup_filename
+
+
+async def cleanup_old_backups():
+    """Keep only the last N backups, delete the rest"""
+    import glob
+
+    backup_files = sorted(
+        Path(BACKUP_DIR).glob("camerasheet_backup_*.db"),
+        key=lambda x: x.stat().st_mtime,
+    )
+
+    while len(backup_files) > BACKUP_COUNT:
+        oldest = backup_files.pop(0)
+        oldest.unlink()
+
+
+async def list_backups():
+    """Get list of available backups with metadata"""
+    import glob
+    from datetime import datetime
+
+    backups = []
+    for backup_path in sorted(
+        Path(BACKUP_DIR).glob("camerasheet_backup_*.db"),
+        key=lambda x: x.stat().st_mtime,
+        reverse=True,
+    ):
+        stat = backup_path.stat()
+        backups.append(
+            {
+                "filename": backup_path.name,
+                "size": stat.st_size,
+                "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            }
+        )
+
+    return backups
+
+
+async def delete_backup(filename: str):
+    """Delete a specific backup file"""
+    backup_path = Path(BACKUP_DIR) / filename
+
+    if (
+        backup_path.exists()
+        and backup_path.name.startswith("camerasheet_backup_")
+        and backup_path.name.endswith(".db")
+    ):
+        backup_path.unlink()
+        return True
+
+    return False
+
+
+async def restore_backup(filename: str) -> bool:
+    """Restore database from a backup file"""
+    import shutil
+
+    backup_path = Path(BACKUP_DIR) / filename
+
+    if not backup_path.exists():
+        raise FileNotFoundError(f"Backup file not found: {filename}")
+
+    if not filename.startswith("camerasheet_backup_") or not filename.endswith(".db"):
+        raise ValueError("Invalid backup filename")
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safety_backup = Path(BACKUP_DIR) / f"safety_backup_{timestamp}.db"
+
+    shutil.copy(DB_PATH, safety_backup)
+    shutil.copy(backup_path, DB_PATH)
+
+    return True
