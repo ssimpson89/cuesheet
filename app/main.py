@@ -89,7 +89,7 @@ async def root():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Camera Cue System</title>
+        <title>CueSheet System</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             body {
@@ -151,7 +151,7 @@ async def root():
         </style>
     </head>
     <body>
-        <h1>Camera Cue System</h1>
+        <h1>CueSheet System</h1>
         <div class="links">
             <a href="/operator">
                 <h2>Operator View</h2>
@@ -559,9 +559,7 @@ async def export_csv():
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={
-                "Content-Disposition": "attachment; filename=camerasheet_export.csv"
-            },
+            headers={"Content-Disposition": "attachment; filename=cuesheet_export.csv"},
         )
 
 
@@ -833,8 +831,8 @@ async def upload_backup(file: UploadFile = File(...)):
         if not filename.endswith(".db"):
             return {"success": False, "message": "File must have .db extension"}
 
-        if not filename.startswith("camerasheet_backup_"):
-            filename = f"camerasheet_backup_{filename}"
+        if not filename.startswith("cuesheet_backup_"):
+            filename = f"cuesheet_backup_{filename}"
 
         backup_path = Path(db.BACKUP_DIR) / filename
 
@@ -860,9 +858,7 @@ async def download_backup(filename: str):
         if not backup_path.exists():
             return {"success": False, "message": "Backup file not found"}
 
-        if not filename.startswith("camerasheet_backup_") or not filename.endswith(
-            ".db"
-        ):
+        if not filename.startswith("cuesheet_backup_") or not filename.endswith(".db"):
             return {"success": False, "message": "Invalid filename"}
 
         def iterfile():
@@ -907,7 +903,7 @@ async def export_db():
         return StreamingResponse(
             iterfile(),
             media_type="application/x-sqlite3",
-            headers={"Content-Disposition": f"attachment; filename=camerasheet.db"},
+            headers={"Content-Disposition": f"attachment; filename=cuesheet.db"},
         )
     except Exception as e:
         return {"success": False, "message": f"Failed to export database: {str(e)}"}

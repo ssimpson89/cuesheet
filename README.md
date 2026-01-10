@@ -1,6 +1,6 @@
-# Camera Cue System
+# CueSheet System
 
-A real-time camera cue tracking system for live performances.
+A real-time cue tracking system for live performances.
 
 ## Technology Stack
 
@@ -25,14 +25,14 @@ docker pull ghcr.io/ssimpson89/cuesheet:latest
 podman run -d \
   -p 8000:8000 \
   -v ./data:/app/data \
-  --name cameracue \
+  --name cuesheet \
   ghcr.io/ssimpson89/cuesheet:latest
 
 # or with Docker:
 docker run -d \
   -p 8000:8000 \
   -v ./data:/app/data \
-  --name cameracue \
+  --name cuesheet \
   ghcr.io/ssimpson89/cuesheet:latest
 ```
 
@@ -42,7 +42,7 @@ docker run -d \
 
 **Building locally (for development):**
 ```bash
-podman build -t cameracue:latest -f Containerfile .
+podman build -t cuesheet:latest -f Containerfile .
 ```
 
 ## Running Locally
@@ -70,7 +70,7 @@ uvicorn app.main:app --reload
 
 | Variable | Description | Default Value | Notes |
 |----------|-------------|---------------|-------|
-| `DB_PATH` | Database file location | `/app/data/camerasheet.db` (container)<br>`camerasheet.db` (local) | Path to SQLite database file |
+| `DB_PATH` | Database file location | `/app/data/cuesheet.db` (container)<br>`cuesheet.db` (local) | Path to SQLite database file |
 | `BACKUP_DIR` | Backup files directory | `backups` | Directory where database backups are stored |
 | `BACKUP_COUNT` | Number of backups to retain | `10` | Maximum number of automatic backups to keep |
 
