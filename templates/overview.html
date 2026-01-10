@@ -33,21 +33,21 @@
         <h1 class="text-xl font-semibold">Cue Overview</h1>
     </header>
     
-    <div class="bg-gray-800 rounded-lg p-4 mb-5 flex gap-8 justify-center items-center text-sm max-w-4xl mx-auto sticky top-0 z-10">
+    <div class="bg-gray-800 rounded-lg p-4 mb-5 flex gap-8 justify-center items-center text-base max-w-4xl mx-auto sticky top-0 z-10">
         <div class="flex gap-2">
-            <span class="text-gray-500">Total Cues:</span>
+            <span class="text-gray-300">Total Cues:</span>
             <span class="text-white font-semibold" id="totalCues">-</span>
         </div>
         <div class="flex gap-2">
-            <span class="text-gray-500">Current:</span>
+            <span class="text-gray-300">Current:</span>
             <span class="text-white font-semibold" id="currentCue">-</span>
         </div>
         <div class="flex gap-2">
-            <span class="text-gray-500">Remaining:</span>
+            <span class="text-gray-300">Remaining:</span>
             <span class="text-white font-semibold" id="remainingCues">-</span>
         </div>
-        <button class="bg-jump-btn text-white border-none px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:bg-blue-700 hover:-translate-y-0.5" onclick="jumpToCurrentCue()">Jump to Current</button>
-        <button id="followBtn" class="text-white border-none px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all hover:-translate-y-0.5" onclick="toggleFollow()" style="background: #444;">Follow Current</button>
+        <button class="bg-jump-btn text-white border-none px-4 py-2 rounded-lg text-base font-semibold cursor-pointer transition-all hover:bg-blue-700 hover:-translate-y-0.5" onclick="jumpToCurrentCue()">Jump to Current</button>
+        <button id="followBtn" class="text-white border-none px-4 py-2 rounded-lg text-base font-semibold cursor-pointer transition-all hover:-translate-y-0.5" onclick="toggleFollow()" style="background: #444;">Follow Current</button>
     </div>
     
     <div class="grid gap-2.5 max-w-4xl mx-auto" id="cueList">
@@ -77,8 +77,8 @@
                     <div class="bg-cue-item rounded-lg p-3 pl-4 border-l-4 border-cue-default grid grid-cols-[60px_1fr] gap-4 items-center transition-all ${cue.id === currentCueId ? 'bg-cue-current border-cue-current' : ''}" id="cue-${cue.id}">
                         <div class="text-xl font-bold text-center ${cue.id === currentCueId ? 'text-cue-current' : 'text-cue-number'}">Cue ${cue.sequence_number}</div>
                         <div class="flex flex-col gap-1">
-                            <div class="text-base font-medium">${escapeHtml(cue.line_text)}</div>
-                            ${cue.notes ? `<div class="text-sm text-gray-400 italic">${escapeHtml(cue.notes)}</div>` : ''}
+                            <div class="text-lg font-medium">${escapeHtml(cue.line_text)}</div>
+                            ${cue.notes ? `<div class="text-base text-gray-300 italic">${escapeHtml(cue.notes)}</div>` : ''}
                         </div>
                     </div>
                 `).join('');

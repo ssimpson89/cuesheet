@@ -39,11 +39,11 @@
                 </svg>
                 <span id="serviceName" class="text-lg font-bold">Loading...</span>
             </a>
-            <span id="status" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700 text-gray-400">Connecting...</span>
+            <span id="status" class="px-2.5 py-1 rounded-full text-sm font-medium bg-slate-700 text-gray-300">Connecting...</span>
         </div>
         
         <div class="flex items-center gap-3">
-            <input type="number" id="goToCueInput" placeholder="Go to cue #" min="1" onkeydown="if(event.key === 'Enter') goToCue()" class="w-24 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500">
+            <input type="number" id="goToCueInput" placeholder="Go to cue #" min="1" onkeydown="if(event.key === 'Enter') goToCue()" class="w-24 px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-300 focus:outline-none focus:border-blue-500">
             <button onclick="goToCue()" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Go</button>
             <button onclick="resetToStart()" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-900/50 text-red-300 hover:bg-red-900/70 border border-red-800 transition-colors">Reset</button>
             <button id="editToggle" onclick="toggleEditMode()" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition-colors">Edit</button>
@@ -54,7 +54,7 @@
     <div id="resetModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
             <div class="text-lg font-semibold text-white mb-2">Reset to Start?</div>
-            <div class="text-gray-400 mb-5 leading-relaxed">This will jump back to Cue 1. Your cues and camera assignments stay intact.</div>
+            <div class="text-gray-300 mb-5 leading-relaxed">This will jump back to Cue 1. Your cues and camera assignments stay intact.</div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeResetModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
                 <button onclick="confirmReset()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Reset to Start</button>
@@ -66,7 +66,7 @@
     <div id="clearModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
             <div class="text-lg font-semibold text-red-400 mb-2">Clear All Data?</div>
-            <div class="text-gray-400 mb-5 leading-relaxed">This will <span class="text-red-400 font-medium">permanently delete</span> ALL cues and camera assignments. This cannot be undone.</div>
+            <div class="text-gray-300 mb-5 leading-relaxed">This will <span class="text-red-400 font-medium">permanently delete</span> ALL cues and camera assignments. This cannot be undone.</div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeClearModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
                 <button onclick="confirmClear()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Delete Everything</button>
@@ -79,7 +79,7 @@
         <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
             <div class="text-lg font-semibold text-white mb-4">Add Camera to Cue <span id="addCameraCueNum"></span></div>
             <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">Camera Number</label>
+                <label class="block text-base text-gray-300 mb-2">Camera Number</label>
                 <select id="newCameraNumber" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm focus:outline-none focus:border-blue-500">
                     <option value="1">Camera 1</option>
                     <option value="2">Camera 2</option>
@@ -91,16 +91,16 @@
                 </select>
             </div>
             <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">Subject</label>
-                <input type="text" id="newCameraSubject" placeholder="e.g., Lead Actor, Chorus, Stage Left" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                <label class="block text-base text-gray-300 mb-2">Subject</label>
+                <input type="text" id="newCameraSubject" placeholder="e.g., Lead Actor, Chorus, Stage Left" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500">
             </div>
             <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">Description</label>
-                <input type="text" id="newCameraShotType" placeholder="e.g., Wide Shot, Close Up, Follow Action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                <label class="block text-base text-gray-300 mb-2">Description</label>
+                <input type="text" id="newCameraShotType" placeholder="e.g., Wide Shot, Close Up, Follow Action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500">
             </div>
             <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">Notes (optional)</label>
-                <input type="text" id="newCameraNotes" placeholder="e.g., Wait for mark, Follow action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                <label class="block text-base text-gray-300 mb-2">Notes (optional)</label>
+                <input type="text" id="newCameraNotes" placeholder="e.g., Wait for mark, Follow action" class="w-full px-3 py-2 rounded-lg border border-slate-600 bg-slate-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500">
             </div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeAddCameraModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
@@ -113,7 +113,7 @@
     <div id="deleteCameraModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
             <div class="text-lg font-semibold text-red-400 mb-2">Remove Camera <span id="deleteCameraNum"></span>?</div>
-            <div class="text-gray-400 mb-5 leading-relaxed">This will remove Camera <span id="deleteCameraNumText"></span> from Cue <span id="deleteCameraCueNum"></span>.</div>
+            <div class="text-gray-300 mb-5 leading-relaxed">This will remove Camera <span id="deleteCameraNumText"></span> from Cue <span id="deleteCameraCueNum"></span>.</div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeDeleteCameraModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
                 <button onclick="confirmDeleteCamera()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Remove Camera</button>
@@ -125,7 +125,7 @@
     <div id="deleteCueModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
         <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
             <div class="text-lg font-semibold text-red-400 mb-2">Delete Cue?</div>
-            <div class="text-gray-400 mb-5 leading-relaxed">Are you sure you want to delete <span id="deleteCueLabel" class="font-semibold text-white"></span>?</div>
+            <div class="text-gray-300 mb-5 leading-relaxed">Are you sure you want to delete <span id="deleteCueLabel" class="font-semibold text-white"></span>?</div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeDeleteCueModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white transition-colors">Cancel</button>
                 <button onclick="confirmDeleteCue()" class="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
@@ -142,7 +142,7 @@
                 </svg>
                 Error
             </div>
-            <div class="text-gray-400 mb-5 leading-relaxed" id="errorModalMessage"></div>
+            <div class="text-gray-300 mb-5 leading-relaxed" id="errorModalMessage"></div>
             <div class="flex gap-3 justify-end">
                 <button onclick="closeErrorModal()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">OK</button>
             </div>
@@ -157,7 +157,7 @@
     
     <!-- Add Cue Buttons (Edit Mode Only) -->
     <div id="addCueButtons" class="sticky bottom-0 bg-slate-800 border-t border-slate-700 p-3 gap-2 justify-center items-center hidden">
-        <button onclick="addCueAtPosition('start')" class="px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-gray-400 rounded transition-colors" title="Add cue at beginning">+ Start</button>
+        <button onclick="addCueAtPosition('start')" class="px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 text-gray-300 rounded transition-colors" title="Add cue at beginning">+ Start</button>
         <button onclick="addCueAtPosition('before')" class="flex-1 py-3 font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
             <span class="text-xl">+</span>
             <span>Add Cue Before</span>
@@ -173,8 +173,8 @@
     
     <!-- Navigation Buttons (Always Visible) -->
     <div id="navButtons" class="sticky bottom-0 bg-slate-800 border-t border-slate-700 p-3 flex gap-2 justify-center">
-        <button id="prevBtn" onclick="previous()" class="flex-1 py-3 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">← Previous</button>
-        <button id="nextBtn" onclick="advance()" class="flex-1 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">Next →</button>
+        <button id="prevBtn" onclick="previous()" class="flex-1 py-3 text-base font-medium bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">← Previous</button>
+        <button id="nextBtn" onclick="advance()" class="flex-1 py-3 text-base font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors">Next →</button>
     </div>
     
     <script>
@@ -215,13 +215,13 @@
             
             ws.onopen = () => {
                 document.getElementById('status').textContent = 'Connected';
-                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900';
+                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-sm font-medium bg-green-900/30 text-green-300 border border-green-900';
                 // Data is already loaded by the immediate calls
             };
             
             ws.onclose = () => {
                 document.getElementById('status').textContent = 'Disconnected';
-                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-red-900/30 text-red-400 border border-red-900';
+                document.getElementById('status').className = 'px-2.5 py-1 rounded-full text-sm font-medium bg-red-900/30 text-red-300 border border-red-900';
             };
             
             ws.onmessage = (event) => {
@@ -280,7 +280,7 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-3 mb-2">
                                     <div class="font-bold text-3xl text-white">Cue ${cue.sequence_number}</div>
-                                    ${isCurrent ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-600 text-white animate-pulse">NOW</span>' : ''}
+                                    ${isCurrent ? '<span class="px-2.5 py-1 rounded-full text-sm font-bold bg-blue-600 text-white animate-pulse">NOW</span>' : ''}
                                 </div>
                                 ${editMode ? `
                                     <input type="text" placeholder="Enter cue description" value="${cue.line_text || ''}" onblur="saveCueField(${cue.id}, 'line_text', this.value)" onkeydown="if(event.key==='Enter') this.blur()" class="w-full px-3 py-2 rounded bg-slate-800 border border-slate-600 text-white text-lg font-medium focus:outline-none focus:border-blue-500 placeholder-gray-500" />
@@ -290,7 +290,7 @@
                                 ${editMode ? `
                                     <textarea placeholder="Add notes..." onblur="saveCueField(${cue.id}, 'notes', this.value)" onkeydown="if(event.key==='Enter' && !event.shiftKey) this.blur()" class="w-full px-3 py-2 mt-2 rounded bg-slate-800 border border-slate-600 text-gray-300 text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500" rows="2">${cue.notes || ''}</textarea>
                                 ` : cue.notes ? `
-                                    <div class="text-sm text-gray-400 mt-2">${cue.notes}</div>
+                                    <div class="text-base text-gray-300 mt-2">${cue.notes}</div>
                                 ` : ''}
                             </div>
                             ${editMode ? `
@@ -305,9 +305,9 @@
                                         <div class="flex items-center gap-2">
                                             <span class="font-bold text-lg text-white">Cam ${cam.camera_number}</span>
                                             ${cam.expected_take ? `
-                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">⭐ TAKE</button>
+                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">⭐ TAKE</button>
                                             ` : `
-                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-gray-400 hover:bg-slate-600 transition-colors">NOT TAKE</button>
+                                                <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-gray-300 hover:bg-slate-600 transition-colors">NOT TAKE</button>
                                             `}
                                         </div>
                                         ${editMode ? `
@@ -316,21 +316,21 @@
                                     </div>
                                     ${editMode ? `
                                         <div>
-                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">SUBJECT</label>
+                                            <label class="text-xs text-gray-400 mb-0.5 block font-medium">SUBJECT</label>
                                             <input type="text" value="${cam.subject || ''}" onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'subject', this.value)" onkeydown="if(event.key==='Enter') this.blur()" placeholder="Subject" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500" />
                                         </div>
                                         <div>
-                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">SHOT TYPE</label>
+                                            <label class="text-xs text-gray-400 mb-0.5 block font-medium">SHOT TYPE</label>
                                             <input type="text" value="${cam.shot_type || ''}" onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'shot_type', this.value)" onkeydown="if(event.key==='Enter') this.blur()" placeholder="Shot Type" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-300 text-sm focus:outline-none focus:border-emerald-500" />
                                         </div>
                                         <div>
-                                            <label class="text-[10px] text-gray-500 mb-0.5 block font-medium">NOTES</label>
-                                            <textarea onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'notes', this.value)" onkeydown="if(event.key==='Enter' && !event.shiftKey) this.blur()" placeholder="Notes" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-400 text-sm focus:outline-none focus:border-emerald-500" rows="2">${cam.notes || ''}</textarea>
+                                            <label class="text-xs text-gray-400 mb-0.5 block font-medium">NOTES</label>
+                                            <textarea onblur="saveCameraField(${cue.id}, ${cam.camera_number}, 'notes', this.value)" onkeydown="if(event.key==='Enter' && !event.shiftKey) this.blur()" placeholder="Notes" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-300 text-sm focus:outline-none focus:border-emerald-500" rows="2">${cam.notes || ''}</textarea>
                                         </div>
                                     ` : `
                                         <div class="text-sm font-medium text-white mb-1 truncate">${cam.subject || 'No subject'}</div>
-                                        ${cam.shot_type ? `<div class="text-xs text-gray-400 mb-1 truncate">${cam.shot_type}</div>` : ''}
-                                        ${cam.notes ? `<div class="text-[11px] text-gray-500 italic line-clamp-2">${cam.notes}</div>` : ''}
+                                        ${cam.shot_type ? `<div class="text-sm text-gray-300 mb-1 truncate">${cam.shot_type}</div>` : ''}
+                                        ${cam.notes ? `<div class="text-sm text-gray-400 italic line-clamp-2">${cam.notes}</div>` : ''}
                                     `}
                                 </div>
                             `).join('')}
@@ -341,14 +341,14 @@
                                 <div class="flex items-center gap-3">
                                     <button onclick="addNewCameraForm('${cue.id}')" class="flex-none w-[200px] h-[160px] rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500 hover:bg-slate-800/50 text-slate-500 hover:text-blue-400 transition-all flex flex-col items-center justify-center gap-2 group">
                                         <span class="text-3xl font-light group-hover:scale-110 transition-transform">+</span>
-                                        <span class="text-[10px] font-bold uppercase tracking-widest">Add Camera</span>
+                                        <span class="text-sm font-bold uppercase tracking-widest">Add Camera</span>
                                     </button>
                                     
                                     <div id="save-controls-${cue.id}" class="${hasPending ? 'flex' : 'hidden'} flex-col gap-2 self-center">
                                         <button onclick="saveAllNewCameras('${cue.id}')" id="save-all-btn-${cue.id}" class="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all active:scale-95">
                                             SAVE ALL
                                         </button>
-                                        <button onclick="cancelAddCamera('${cue.id}')" id="cancel-all-btn-${cue.id}" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-400 text-[10px] font-bold uppercase tracking-wider transition-colors">
+                                        <button onclick="cancelAddCamera('${cue.id}')" id="cancel-all-btn-${cue.id}" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-gray-300 text-xs font-bold uppercase tracking-wider transition-colors">
                                             Cancel
                                         </button>
                                     </div>
@@ -615,12 +615,12 @@
                     <div class="space-y-3">
                         <div>
                             <div class="grid grid-cols-6 gap-0.5">
-                                ${[1,2,3,4,5,6,7,8,9,10,11,12].map(num => `
-                                    <button onclick="toggleCameraSelection(${cueId}, ${num})" 
-                                            class="aspect-square rounded border text-[9px] font-bold transition-all ${
-                                                cam.number === num 
-                                                ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm' 
-                                                : 'border-slate-700 bg-slate-900/50 text-gray-500 hover:border-emerald-500/50 hover:text-gray-300'
+                                 ${[1,2,3,4,5,6,7,8,9,10,11,12].map(num => `
+                                    <button onclick="toggleCameraSelection(${cueId}, ${num})"
+                                            class="aspect-square rounded border text-sm font-bold transition-all ${
+                                                cam.number === num
+                                                ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm'
+                                                : 'border-slate-700 bg-slate-900/50 text-gray-400 hover:border-emerald-500/50 hover:text-gray-300'
                                             }">
                                         ${num}
                                     </button>
@@ -629,24 +629,24 @@
                         </div>
                         <div class="space-y-2">
                             <div>
-                                <label class="text-xs text-gray-500 mb-1 block">Subject</label>
-                                <input type="text" id="pending-subject-${cueId}-${idx}" value="${cam.subject}" 
+                                <label class="text-xs text-gray-400 mb-1 block">Subject</label>
+                                <input type="text" id="pending-subject-${cueId}-${idx}" value="${cam.subject}"
                                        oninput="updatePendingCamera(${cueId}, ${idx}, 'subject', this.value)"
                                        placeholder="Subject"
-                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" />
+                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-500" />
                             </div>
                             <div>
-                                <label class="text-xs text-gray-500 mb-1 block">Shot Type</label>
+                                <label class="text-xs text-gray-400 mb-1 block">Shot Type</label>
                                 <input type="text" id="pending-shot-${cueId}-${idx}" value="${cam.shot_type}"
                                        oninput="updatePendingCamera(${cueId}, ${idx}, 'shot_type', this.value)"
                                        placeholder="Shot Type"
-                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" />
+                                       class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-500" />
                             </div>
                             <div>
-                                <label class="text-xs text-gray-500 mb-1 block">Notes</label>
+                                <label class="text-xs text-gray-400 mb-1 block">Notes</label>
                                 <textarea oninput="updatePendingCamera(${cueId}, ${idx}, 'notes', this.value)"
                                           placeholder="Notes"
-                                          class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-400 text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-600" rows="2">${cam.notes}</textarea>
+                                          class="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-gray-300 text-sm focus:outline-none focus:border-emerald-500 placeholder-gray-500" rows="2">${cam.notes}</textarea>
                             </div>
                         </div>
                     </div>
@@ -782,10 +782,10 @@ async function confirmAddCamera() {
                     // Update the button immediately
                     const isExpectedTake = result.expected_take;
                     if (isExpectedTake) {
-                        button.className = 'text-xs px-2 py-1 rounded bg-red-900 hover:bg-red-800 text-red-200 transition-colors';
+                        button.className = 'text-sm px-2 py-1 rounded bg-red-900 hover:bg-red-800 text-red-200 transition-colors';
                         button.innerHTML = '⭐ Remove Take';
                     } else {
-                        button.className = 'text-xs px-2 py-1 rounded bg-blue-900 hover:bg-blue-800 text-blue-200 transition-colors';
+                        button.className = 'text-sm px-2 py-1 rounded bg-blue-900 hover:bg-blue-800 text-blue-200 transition-colors';
                         button.innerHTML = '☐ Set as Take';
                     }
                 }
