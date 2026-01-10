@@ -1,7 +1,7 @@
 {
-  "name": "camerasheet",
+  "name": "cuesheet",
   "version": "1.0.0",
-  "description": "A real-time camera cue tracking system for live performances, built with FastAPI and WebSockets.",
+  "description": "A real-time cue tracking system for live performances, built with FastAPI and WebSockets.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

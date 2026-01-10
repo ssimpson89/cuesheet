@@ -19,7 +19,7 @@ COPY static/ ./static/
 COPY templates/ ./templates/
 
 # Set up a directory for the persistent database
-ENV DB_PATH=/app/data/camerasheet.db
+ENV DB_PATH=/app/data/cuesheet.db
 RUN mkdir -p /app/data
 VOLUME /app/data
 

@@ -1,7 +1,7 @@
 [project]
-name = "camerasheet"
+name = "cuesheet"
 version = "0.1.0"
-description = "Camera cue tracking system for live performances"
+description = "Cue tracking system for live performances"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

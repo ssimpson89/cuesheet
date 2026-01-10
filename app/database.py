@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = os.getenv("DB_PATH", "camerasheet.db")
+DB_PATH = os.getenv("DB_PATH", "cuesheet.db")
 
 
 async def init_db():
@@ -100,7 +100,7 @@ async def init_db():
 
         # Initialize settings
         await db.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES ('script_name', 'Camera CueSheet')"
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('script_name', 'CueSheet')"
         )
 
         await db.commit()
@@ -146,7 +146,7 @@ async def get_script_name(script_id=1):
             if row:
                 return row["name"]
 
-        return "Camera CueSheet"
+        return "CueSheet"
 
 
 async def get_current_state():
@@ -605,7 +605,7 @@ async def create_backup():
     Path(BACKUP_DIR).mkdir(exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"camerasheet_backup_{timestamp}.db"
+    backup_filename = f"cuesheet_backup_{timestamp}.db"
     backup_path = Path(BACKUP_DIR) / backup_filename
 
     shutil.copy(DB_PATH, backup_path)
@@ -620,7 +620,7 @@ async def cleanup_old_backups():
     import glob
 
     backup_files = sorted(
-        Path(BACKUP_DIR).glob("camerasheet_backup_*.db"),
+        Path(BACKUP_DIR).glob("cuesheet_backup_*.db"),
         key=lambda x: x.stat().st_mtime,
     )
 
@@ -636,7 +636,7 @@ async def list_backups():
 
     backups = []
     for backup_path in sorted(
-        Path(BACKUP_DIR).glob("camerasheet_backup_*.db"),
+        Path(BACKUP_DIR).glob("cuesheet_backup_*.db"),
         key=lambda x: x.stat().st_mtime,
         reverse=True,
     ):
@@ -658,7 +658,7 @@ async def delete_backup(filename: str):
 
     if (
         backup_path.exists()
-        and backup_path.name.startswith("camerasheet_backup_")
+        and backup_path.name.startswith("cuesheet_backup_")
         and backup_path.name.endswith(".db")
     ):
         backup_path.unlink()
@@ -676,7 +676,7 @@ async def restore_backup(filename: str) -> bool:
     if not backup_path.exists():
         raise FileNotFoundError(f"Backup file not found: {filename}")
 
-    if not filename.startswith("camerasheet_backup_") or not filename.endswith(".db"):
+    if not filename.startswith("cuesheet_backup_") or not filename.endswith(".db"):
         raise ValueError("Invalid backup filename")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
