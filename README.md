@@ -1,6 +1,14 @@
 # CueSheet System
 
-A real-time cue tracking system for live performances.
+A real-time cue tracking and management system for live theatrical and broadcast productions. All views stay perfectly in sync via WebSockets — create and trigger cues while camera operators follow along on unique URLs for their specific cameras, and a global rundown keeps the entire crew on the same page.
+
+| <img src="docs/images/operator.png" style="display: block; margin: 0 auto;" width="100%" /> |
+|:---:|
+| Operator View |
+
+| <img src="docs/images/camera.png" style="display: block; margin: 0 auto;" width="350" /> |
+|:---:|
+| Camera View |
 
 ## Technology Stack
 
