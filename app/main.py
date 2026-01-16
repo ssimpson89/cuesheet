@@ -6,8 +6,14 @@ from fastapi import (
     File,
     Request,
     Form,
+    Response,
 )
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import (
+    HTMLResponse,
+    StreamingResponse,
+    RedirectResponse,
+    JSONResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import json
@@ -21,6 +27,7 @@ import csv
 import io
 
 from . import database as db
+from . import auth
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -200,6 +207,207 @@ async def root():
     </body>
     </html>
     """)
+
+
+@app.get("/login")
+async def login_page(request: Request, next: str = "/"):
+    """Login page"""
+    # If auth is disabled, redirect to home
+    if not auth.is_auth_enabled():
+        return RedirectResponse(url="/", status_code=303)
+
+    # If already logged in, redirect to next page
+    user = await auth.get_current_user(request)
+    if user and user != "anonymous":
+        return RedirectResponse(url=next, status_code=303)
+
+    return HTMLResponse(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Login - CueSheet</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                max-width: 400px;
+                margin: 100px auto;
+                padding: 20px;
+                background: #1a1a2e;
+                color: #e0e0e0;
+            }}
+            h1 {{
+                color: #fff;
+                text-align: center;
+                margin-bottom: 30px;
+            }}
+            form {{
+                background: #16213e;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }}
+            label {{
+                display: block;
+                margin-bottom: 8px;
+                color: #4ecca3;
+                font-weight: 500;
+            }}
+            input {{
+                width: 100%;
+                padding: 12px;
+                background: #0f3460;
+                border: 1px solid #1f4068;
+                border-radius: 4px;
+                color: #e0e0e0;
+                font-size: 16px;
+                box-sizing: border-box;
+            }}
+            input:focus {{
+                outline: none;
+                border-color: #4ecca3;
+            }}
+            button {{
+                width: 100%;
+                padding: 12px;
+                margin-top: 20px;
+                background: #4ecca3;
+                border: none;
+                border-radius: 4px;
+                color: #1a1a2e;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+            }}
+            button:hover {{
+                background: #45b393;
+            }}
+            .error {{
+                background: #ff6b6b;
+                color: white;
+                padding: 12px;
+                border-radius: 4px;
+                margin-bottom: 20px;
+                display: none;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>CueSheet Login</h1>
+        <div id="error" class="error"></div>
+        <form id="loginForm">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password" autofocus>
+            <button type="submit">Login</button>
+        </form>
+        <script>
+            const form = document.getElementById('loginForm');
+            const errorDiv = document.getElementById('error');
+            
+            form.addEventListener('submit', async (e) => {{
+                e.preventDefault();
+                errorDiv.style.display = 'none';
+                
+                const formData = new FormData(form);
+                
+                try {{
+                    const response = await fetch('/api/auth/login', {{
+                        method: 'POST',
+                        body: formData
+                    }});
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {{
+                        window.location.href = '{next}';
+                    }} else {{
+                        errorDiv.textContent = data.message || 'Login failed';
+                        errorDiv.style.display = 'block';
+                    }}
+                }} catch (error) {{
+                    errorDiv.textContent = 'An error occurred. Please try again.';
+                    errorDiv.style.display = 'block';
+                }}
+            }});
+        </script>
+    </body>
+    </html>
+    """)
+
+
+@app.post("/api/auth/login")
+async def login(request: Request, response: Response, password: str = Form(...)):
+    """Handle login"""
+    if await auth.check_password(password):
+        # Create session token and set cookie
+        token = auth.create_session_token()
+        resp = JSONResponse(content={"success": True})
+        resp.set_cookie(
+            key=auth.SESSION_COOKIE_NAME,
+            value=token,
+            max_age=30 * 24 * 60 * 60,  # 30 days
+            httponly=True,
+            samesite="lax",
+        )
+        return resp
+    else:
+        return {"success": False, "message": "Invalid password"}
+
+
+@app.post("/api/auth/set-password")
+async def set_password_endpoint(request: Request, new_password: str = Form(...)):
+    """Set or change password (requires authentication)"""
+    auth_response = await auth.require_auth(request)
+    if auth_response:
+        return {"success": False, "message": "Authentication required"}
+
+    if await auth.set_password(new_password):
+        return {"success": True, "message": "Password changed successfully"}
+    else:
+        return {"success": False, "message": "Failed to change password"}
+
+
+@app.get("/api/auth/page-locks")
+async def get_page_locks():
+    """Get all page lock settings"""
+    return await auth.get_page_locks()
+
+
+@app.post("/api/auth/page-lock")
+async def set_page_lock(
+    request: Request, page: str = Form(...), enabled: str = Form(...)
+):
+    """Set lock for a specific page (requires authentication)"""
+    auth_response = await auth.require_auth(request)
+    if auth_response:
+        return {"success": False, "message": "Authentication required"}
+
+    enabled_bool = enabled.lower() in ("true", "1", "yes")
+    if await auth.set_page_lock(page, enabled_bool):
+        return {
+            "success": True,
+            "message": f"{page.capitalize()} page {'locked' if enabled_bool else 'unlocked'}",
+        }
+    else:
+        return {"success": False, "message": "Failed to update setting"}
+
+
+@app.post("/api/auth/lock-all-pages")
+async def set_all_page_locks(request: Request, enabled: str = Form(...)):
+    """Lock/unlock all pages (requires authentication)"""
+    auth_response = await auth.require_auth(request)
+    if auth_response:
+        return {"success": False, "message": "Authentication required"}
+
+    enabled_bool = enabled.lower() in ("true", "1", "yes")
+    if await auth.set_all_page_locks(enabled_bool):
+        return {
+            "success": True,
+            "message": f"All pages {'locked' if enabled_bool else 'unlocked'}",
+        }
+    else:
+        return {"success": False, "message": "Failed to update settings"}
 
 
 @app.get("/api/state")
@@ -472,36 +680,51 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 @app.get("/operator")
-async def operator_view():
+async def operator_view(request: Request):
     """Operator view - advance through script"""
+    auth_response = await auth.require_auth_for_page(request, "operator")
+    if auth_response:
+        return auth_response
     with open("templates/operator.html") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/director")
-async def director_view():
+async def director_view(request: Request):
     """Director view - monitor all cameras"""
+    auth_response = await auth.require_auth_for_page(request, "director")
+    if auth_response:
+        return auth_response
     with open("templates/director.html") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/overview")
-async def overview_view():
+async def overview_view(request: Request):
     """Overview - compact cue list"""
+    auth_response = await auth.require_auth_for_page(request, "overview")
+    if auth_response:
+        return auth_response
     with open("templates/overview.html") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/admin")
-async def admin_view():
-    """Admin - manage system and data"""
+async def admin_view(request: Request):
+    """Admin - manage system and data (requires authentication)"""
+    auth_response = await auth.require_auth(request)
+    if auth_response:
+        return auth_response
     with open("templates/admin.html") as f:
         return HTMLResponse(f.read())
 
 
 @app.get("/camera/{camera_number}")
-async def camera_view(camera_number: int):
+async def camera_view(request: Request, camera_number: int):
     """Camera operator view - see only their cues"""
+    auth_response = await auth.require_auth_for_page(request, "camera")
+    if auth_response:
+        return auth_response
     with open("templates/camera.html") as f:
         html = f.read()
         # Inject camera number into the page

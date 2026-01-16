@@ -17,6 +17,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY app/ ./app/
 COPY static/ ./static/
 COPY templates/ ./templates/
+COPY scripts/ ./scripts/
 
 # Set up a directory for the persistent database
 ENV DB_PATH=/app/data/cuesheet.db

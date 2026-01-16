@@ -98,10 +98,20 @@ async def init_db():
             (first_cue_id,),
         )
 
-        # Initialize settings
-        await db.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES ('script_name', 'CueSheet')"
+        # Set default admin password if not already set
+        cursor = await db.execute(
+            "SELECT value FROM settings WHERE key = 'auth_password_hash'"
         )
+        existing_password = await cursor.fetchone()
+        if not existing_password:
+            # Import auth here to avoid circular dependency
+            from . import auth
+
+            default_password_hash = auth.hash_password("admin")
+            await db.execute(
+                "INSERT INTO settings (key, value) VALUES ('auth_password_hash', ?)",
+                (default_password_hash,),
+            )
 
         await db.commit()
 
@@ -127,6 +137,13 @@ async def set_setting(key, value):
         """,
             (key, value),
         )
+        await db.commit()
+
+
+async def delete_setting(key):
+    """Delete a setting"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM settings WHERE key = ?", (key,))
         await db.commit()
 
 
