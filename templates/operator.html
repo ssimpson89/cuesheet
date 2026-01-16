@@ -842,12 +842,31 @@ async function confirmAddCamera() {
         });
         
         document.addEventListener('keydown', (e) => {
+            // Ignore keypresses when typing in an input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if (e.key === 'Enter') {
+                    // Allow Enter key in modals even when focused on inputs
+                    if (!document.getElementById('resetModal').classList.contains('hidden')) {
+                        confirmReset();
+                    } else if (!document.getElementById('clearModal').classList.contains('hidden')) {
+                        confirmClear();
+                    }
+                }
+                return;
+            }
+            
             if (e.key === 'Enter') {
                 if (!document.getElementById('resetModal').classList.contains('hidden')) {
                     confirmReset();
                 } else if (!document.getElementById('clearModal').classList.contains('hidden')) {
                     confirmClear();
                 }
+            } else if (e.key === 'ArrowRight') {
+                // Right arrow advances to next cue
+                advance();
+            } else if (e.key === 'ArrowLeft') {
+                // Left arrow goes to previous cue
+                previous();
             }
         });
 
