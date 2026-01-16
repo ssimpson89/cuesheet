@@ -78,6 +78,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     """Health check endpoint for container monitoring"""
     try:
