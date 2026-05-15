@@ -35,7 +35,13 @@ class AIService:
         """Load configuration from database settings"""
         self.enabled = await db.get_setting("ai_enabled", "false") == "true"
         self.model = await db.get_setting("ai_model", "openai/gpt-4o-mini")
-        self.daily_limit = int(await db.get_setting("ai_daily_request_limit", "0"))
+        # Defensive int parse — the admin UI can persist an empty string if
+        # the user clears the input. Treat any non-integer value as "no limit".
+        raw_limit = await db.get_setting("ai_daily_request_limit", "0")
+        try:
+            self.daily_limit = int(raw_limit)
+        except (TypeError, ValueError):
+            self.daily_limit = 0
 
         # Initialize OpenAI client if API key is available
         if self.api_key and self.api_key != "sk-or-v1-your-key-here":
@@ -207,43 +213,57 @@ class AIService:
         errors = []
         last_created_cue_id = None  # Track the most recently created cue
 
+        # Cache cues for resolving model-supplied identifiers to real DB IDs.
+        # The prompt instructs the model that "cue 26" = sequence_number 26,
+        # so any numeric cue_id/target_cue_id is treated as a sequence number
+        # unless it matches a known DB id directly (defensive double-lookup).
+        all_cues_cache = await db.get_all_cues_with_cameras()
+        cues_by_id = {c["id"]: c for c in all_cues_cache}
+        cues_by_seq = {c["sequence_number"]: c for c in all_cues_cache}
+
+        def resolve_cue_id(ref):
+            """Resolve a model-supplied cue reference to a DB id.
+
+            Accepts the `$LAST_CREATED_CUE` sentinel, an int that may be a
+            sequence_number (preferred per prompt) or a DB id (fallback), or
+            returns None if no match. Re-fetches the cache after mutations
+            so $LAST_CREATED_CUE and subsequent references stay valid.
+            """
+            if ref == "$LAST_CREATED_CUE":
+                return last_created_cue_id
+            if ref is None:
+                return None
+            # Prefer sequence_number per prompt rule 5
+            if ref in cues_by_seq:
+                return cues_by_seq[ref]["id"]
+            # Fall back to direct DB id match
+            if ref in cues_by_id:
+                return cues_by_id[ref]["id"]
+            return None
+
         for op in operations:
             op_type = op.get("type")
             params = op.get("params", {})
 
             try:
                 if op_type == "create_cue":
-                    # Convert position-based parameters to sequence_number
                     position = params.get("position", "end")
-                    target_cue_id = params.get("target_cue_id")
-
-                    # Get all cues to determine sequence number
-                    all_cues = await db.get_all_cues_with_cameras()
+                    target_db_id = resolve_cue_id(params.get("target_cue_id"))
 
                     if position == "start":
                         sequence_number = 1
                     elif position == "end":
-                        sequence_number = len(all_cues) + 1
-                    elif position == "before" and target_cue_id:
-                        target_cue = next(
-                            (c for c in all_cues if c["id"] == target_cue_id), None
-                        )
-                        sequence_number = (
-                            target_cue["sequence_number"]
-                            if target_cue
-                            else len(all_cues) + 1
-                        )
-                    elif position == "after" and target_cue_id:
-                        target_cue = next(
-                            (c for c in all_cues if c["id"] == target_cue_id), None
-                        )
-                        sequence_number = (
-                            target_cue["sequence_number"] + 1
-                            if target_cue
-                            else len(all_cues) + 1
-                        )
+                        sequence_number = len(all_cues_cache) + 1
+                    elif position in ("before", "after") and target_db_id is not None:
+                        target_cue = cues_by_id.get(target_db_id)
+                        if target_cue is None:
+                            sequence_number = len(all_cues_cache) + 1
+                        elif position == "before":
+                            sequence_number = target_cue["sequence_number"]
+                        else:
+                            sequence_number = target_cue["sequence_number"] + 1
                     else:
-                        sequence_number = len(all_cues) + 1
+                        sequence_number = len(all_cues_cache) + 1
 
                     cue_id = await db.create_cue_at_position(
                         script_id=1,
@@ -251,33 +271,49 @@ class AIService:
                         line_text=params["line_text"],
                         notes=params.get("notes", ""),
                     )
-                    last_created_cue_id = cue_id  # Track for subsequent operations
+                    last_created_cue_id = cue_id
+                    # Refresh caches so subsequent ops see the new cue and the
+                    # renumbered neighbours.
+                    all_cues_cache = await db.get_all_cues_with_cameras()
+                    cues_by_id = {c["id"]: c for c in all_cues_cache}
+                    cues_by_seq = {c["sequence_number"]: c for c in all_cues_cache}
                     results.append({"type": op_type, "cue_id": cue_id, "success": True})
 
                 elif op_type == "update_cue":
-                    await db.update_cue(
-                        cue_id=params["cue_id"],
-                        line_text=params.get("line_text"),
-                        notes=params.get("notes"),
-                    )
-                    results.append(
-                        {"type": op_type, "cue_id": params["cue_id"], "success": True}
-                    )
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"update_cue: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
+                    # Preserve fields the model didn't provide — explicitly
+                    # omitted keys must not blank out existing values.
+                    existing = cues_by_id.get(db_id, {})
+                    line_text = params["line_text"] if "line_text" in params else existing.get("line_text", "")
+                    notes = params["notes"] if "notes" in params else existing.get("notes", "")
+                    await db.update_cue(cue_id=db_id, line_text=line_text or "", notes=notes or "")
+                    results.append({"type": op_type, "cue_id": db_id, "success": True})
 
                 elif op_type == "delete_cue":
-                    await db.delete_cue(params["cue_id"])
-                    results.append(
-                        {"type": op_type, "cue_id": params["cue_id"], "success": True}
-                    )
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"delete_cue: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
+                    await db.delete_cue(db_id)
+                    # Refresh after delete since sequence numbers shift.
+                    all_cues_cache = await db.get_all_cues_with_cameras()
+                    cues_by_id = {c["id"]: c for c in all_cues_cache}
+                    cues_by_seq = {c["sequence_number"]: c for c in all_cues_cache}
+                    results.append({"type": op_type, "cue_id": db_id, "success": True})
 
                 elif op_type == "add_camera":
-                    # Replace $LAST_CREATED_CUE marker with actual cue_id
-                    cue_id = params["cue_id"]
-                    if cue_id == "$LAST_CREATED_CUE" and last_created_cue_id:
-                        cue_id = last_created_cue_id
-
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"add_camera: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
                     await db.update_camera_assignment(
-                        cue_id=cue_id,
+                        cue_id=db_id,
                         camera_number=params["camera_number"],
                         subject=params["subject"],
                         shot_type=params.get("shot_type", ""),
@@ -286,54 +322,77 @@ class AIService:
                     results.append(
                         {
                             "type": op_type,
-                            "cue_id": cue_id,
+                            "cue_id": db_id,
                             "camera_number": params["camera_number"],
                             "success": True,
                         }
                     )
 
                 elif op_type == "update_camera":
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"update_camera: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
+                    # Preserve fields the model didn't supply.
+                    cue = cues_by_id.get(db_id, {})
+                    cam_num = params["camera_number"]
+                    existing_cam = next(
+                        (c for c in (cue.get("cameras") or []) if c["camera_number"] == cam_num),
+                        {},
+                    )
+                    subject = params["subject"] if "subject" in params else existing_cam.get("subject", "")
+                    shot_type = params["shot_type"] if "shot_type" in params else existing_cam.get("shot_type", "")
+                    notes = params["notes"] if "notes" in params else existing_cam.get("notes", "")
                     await db.update_camera_assignment(
-                        cue_id=params["cue_id"],
-                        camera_number=params["camera_number"],
-                        subject=params.get("subject"),
-                        shot_type=params.get("shot_type"),
-                        notes=params.get("notes"),
+                        cue_id=db_id,
+                        camera_number=cam_num,
+                        subject=subject or "",
+                        shot_type=shot_type or "",
+                        notes=notes or "",
                     )
                     results.append(
                         {
                             "type": op_type,
-                            "cue_id": params["cue_id"],
-                            "camera_number": params["camera_number"],
+                            "cue_id": db_id,
+                            "camera_number": cam_num,
                             "success": True,
                         }
                     )
 
                 elif op_type == "delete_camera":
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"delete_camera: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
                     await db.delete_camera_assignment(
-                        cue_id=params["cue_id"], camera_number=params["camera_number"]
+                        cue_id=db_id, camera_number=params["camera_number"]
                     )
                     results.append(
                         {
                             "type": op_type,
-                            "cue_id": params["cue_id"],
+                            "cue_id": db_id,
                             "camera_number": params["camera_number"],
                             "success": True,
                         }
                     )
 
                 elif op_type == "bulk_add_cameras":
-                    # Replace $LAST_CREATED_CUE marker with actual cue_id
-                    cue_id = params["cue_id"]
-                    if cue_id == "$LAST_CREATED_CUE" and last_created_cue_id:
-                        cue_id = last_created_cue_id
+                    db_id = resolve_cue_id(params.get("cue_id"))
+                    if db_id is None:
+                        errors.append(f"bulk_add_cameras: cue {params.get('cue_id')} not found")
+                        results.append({"type": op_type, "success": False, "error": "not found"})
+                        continue
 
-                    cameras = params.get("cameras", [])
-
+                    cameras = params.get("cameras", []) or []
                     for cam in cameras:
+                        cam_num = cam.get("camera_number")
+                        if cam_num is None:
+                            continue
                         await db.update_camera_assignment(
-                            cue_id=cue_id,
-                            camera_number=cam["camera_number"],
+                            cue_id=db_id,
+                            camera_number=cam_num,
                             subject=cam.get("subject", ""),
                             shot_type=cam.get("shot_type", ""),
                             notes=cam.get("notes", ""),
@@ -342,7 +401,7 @@ class AIService:
                     results.append(
                         {
                             "type": op_type,
-                            "cue_id": cue_id,
+                            "cue_id": db_id,
                             "camera_count": len(cameras),
                             "success": True,
                         }

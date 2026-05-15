@@ -246,9 +246,34 @@ async def handle_create_cue(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 async def handle_update_cue(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Update a cue, preserving fields the caller didn't supply.
+
+    The tool schema marks line_text/notes as optional; an omitted field must
+    not clobber the existing value.
+    """
     cue_id = arguments["cue_id"]
-    line_text = arguments.get("line_text", "")
-    notes = arguments.get("notes", "")
+
+    # Look up the existing cue so we can preserve unspecified fields.
+    existing = None
+    for c in await db.get_all_cues_with_cameras():
+        if c["id"] == cue_id:
+            existing = c
+            break
+
+    if existing is None:
+        return [
+            {
+                "type": "text",
+                "text": json.dumps(
+                    {"success": False, "message": f"Cue {cue_id} not found"},
+                    indent=2,
+                ),
+            }
+        ]
+
+    line_text = arguments["line_text"] if "line_text" in arguments else existing.get("line_text") or ""
+    notes = arguments["notes"] if "notes" in arguments else existing.get("notes") or ""
+
     await db.update_cue(cue_id=cue_id, line_text=line_text, notes=notes)
     return [
         {

@@ -821,9 +821,10 @@ async def create_backup():
 
 
 async def cleanup_old_backups():
-    """Keep only the last N backups, delete the rest."""
+    """Keep only the last N backups (regular + safety), delete the rest."""
     backup_files = sorted(
-        Path(BACKUP_DIR).glob("cuesheet_backup_*.db"),
+        list(Path(BACKUP_DIR).glob("cuesheet_backup_*.db"))
+        + list(Path(BACKUP_DIR).glob("safety_backup_*.db")),
         key=lambda x: x.stat().st_mtime,
     )
     while len(backup_files) > BACKUP_COUNT:
@@ -872,7 +873,14 @@ async def delete_backup(filename: str) -> bool:
 
 
 async def restore_backup(filename: str) -> bool:
-    """Restore database from a backup file."""
+    """Restore database from a backup file.
+
+    With WAL enabled, just copying the .db file is unsafe: SQLite would
+    replay frames from the pre-restore `-wal` sidecar over the freshly
+    swapped main file. We snapshot first, then truncate the WAL, copy the
+    new file in, and remove the stale `-wal`/`-shm` sidecars so the next
+    open starts clean.
+    """
     if not _BACKUP_FILENAME_RE.match(filename):
         raise ValueError("Invalid backup filename")
 
@@ -880,18 +888,39 @@ async def restore_backup(filename: str) -> bool:
     if not backup_path.exists():
         raise FileNotFoundError(f"Backup file not found: {filename}")
 
-    # Safety snapshot first
+    # Safety snapshot first (consistent online backup). Use a distinct
+    # `safety_backup_` prefix so we can never collide with — and overwrite —
+    # the backup we're about to restore from.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safety_backup = Path(BACKUP_DIR) / f"cuesheet_backup_{timestamp}.db"
+    safety_backup = Path(BACKUP_DIR) / f"safety_backup_{timestamp}.db"
     try:
         async with aiosqlite.connect(DB_PATH) as src:
             async with aiosqlite.connect(str(safety_backup)) as dst:
                 await src.backup(dst)
     except Exception:
-        # Best-effort safety backup; continue with restore
+        # Best-effort; continue with restore
+        pass
+
+    # Flush any pending WAL frames back into the main DB before swap.
+    try:
+        async with aiosqlite.connect(DB_PATH) as conn:
+            await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception:
         pass
 
     shutil.copy(backup_path, DB_PATH)
+
+    # Drop stale sidecars so SQLite doesn't replay old WAL frames over the
+    # restored file on next open.
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(f"{DB_PATH}{suffix}")
+        try:
+            sidecar.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+
     return True
 
 

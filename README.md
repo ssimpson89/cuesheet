@@ -175,7 +175,7 @@ CueSheet exposes a Model Context Protocol (MCP) server that allows AI assistants
 
 ### Available MCP Tools
 
-The MCP server provides 14 tools for managing cues and camera assignments:
+The MCP server provides 11 tools for managing cues and camera assignments:
 
 **Read Operations:**
 - `list_all_cues` - Get all cues with camera assignments

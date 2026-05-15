@@ -1189,30 +1189,34 @@
 
         async function saveAILimit() {
             const input = document.getElementById('aiDailyLimitInput');
-            const limit = input.value;
+            const raw = input.value.trim();
             const statusEl = document.getElementById('aiSettingsStatus');
-            
-            if (limit < 0) {
-                statusEl.textContent = '✗ Limit must be 0 or greater';
+
+            // Empty input means "no limit" (server stores 0). Reject anything
+            // that isn't a non-negative integer so we never persist junk that
+            // would later crash AIService.
+            const limit = raw === '' ? 0 : Number(raw);
+            if (!Number.isInteger(limit) || limit < 0) {
+                statusEl.textContent = '✗ Limit must be 0 or a positive whole number';
                 statusEl.className = 'mt-4 p-4 rounded-lg block bg-red-100 text-red-800 border border-red-300';
                 statusEl.classList.remove('hidden');
                 return;
             }
-            
+
             statusEl.textContent = 'Saving limit...';
             statusEl.className = 'mt-4 p-4 rounded-lg block';
             statusEl.classList.remove('hidden');
-            
+
             try {
                 const response = await fetch('/api/settings/ai_daily_request_limit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `value=${limit}`
+                    body: `value=${encodeURIComponent(String(limit))}`
                 });
                 const result = await response.json();
                 
                 if (result.success) {
-                    statusEl.textContent = limit === '0' ? '✓ Unlimited requests allowed' : `✓ Daily limit set to ${limit} requests`;
+                    statusEl.textContent = limit === 0 ? '✓ Unlimited requests allowed' : `✓ Daily limit set to ${limit} requests`;
                     statusEl.className = 'mt-4 p-4 rounded-lg block bg-green-100 text-green-800 border border-green-300';
                     setTimeout(() => statusEl.classList.add('hidden'), 3000);
                 } else {

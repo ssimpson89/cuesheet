@@ -1,4 +1,4 @@
-"""System prompts and templates for AI integr ation"""
+"""System prompts and templates for AI integration"""
 
 SYSTEM_PROMPT = """You are an AI assistant for CueSheet, a cue management system for live theatrical and broadcast productions.
 
