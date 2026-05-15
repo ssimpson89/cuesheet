@@ -3,16 +3,14 @@
 __pycache__/
 *.pyc
 
-# Databases
+# Databases (SQLite + WAL/SHM transient files)
 *.db
+*.db-shm
+*.db-wal
 data/
 
-# Node
+# Node (lockfile and built CSS are tracked — see package.json `build:css`)
 node_modules/
-package-lock.json
-
-# Build artifacts
-static/output.css
 
 # Logs
 *.log

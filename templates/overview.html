@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Cue Overview - CueSheet System</title>
-    <script src="/static/vendor/tailwindcss.js"></script>
+    <link rel="stylesheet" href="/static/output.css">
     <script defer src="/static/vendor/lucide.js"></script>
     <style>
         .bg-header { background: rgb(12, 35, 64); }
@@ -126,14 +126,18 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadSettings(); // Load settings immediately
-            const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
-            
+        let ws;
+        function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+            ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`);
+
             ws.onopen = () => {
-                // Connection established
+                // Full resync after (re)connect in case we missed broadcasts.
+                loadCues();
             };
-            
+
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 if (data.type === 'ping') return;
@@ -185,12 +189,16 @@
             }
         };
         
-        ws.onclose = () => {
-            setTimeout(() => window.location.reload(), 3000);
-        };
-        
-        loadCues();
-    });
+            ws.onclose = () => {
+                setTimeout(connect, 2000);
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadCues();
+            connect();
+        });
     </script>
 </body>
 </html>

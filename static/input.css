@@ -1,10 +1,26 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@source "../templates";
+@source "../static/ai_assistant.js";
 
 @layer base {
   :root {
     --background: #ffffff;
     --foreground: #171717;
+  }
+
+  /* Cue numbers should column-align as the list scrolls. */
+  .tabular-nums-app {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Respect reduced-motion preferences (a11y). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

@@ -21,15 +21,21 @@ COPY scripts/ ./scripts/
 
 # Set up a directory for the persistent database
 ENV DB_PATH=/app/data/cuesheet.db
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/backups
+
+# Create a non-root user and hand it ownership of writable paths.
+# busybox `adduser -D` (Alpine) creates a system user without a password.
+RUN adduser -D -u 10001 app \
+    && chown -R app:app /app
+
+USER app
+
 VOLUME /app/data
 
-# Expose port
 EXPOSE 8000
 
-# Health check: Verifies the server is up AND the database is reachable
+# Health check: verifies the server is up AND the database is reachable
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
-# Run the application using the new module path
 CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

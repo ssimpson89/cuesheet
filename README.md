@@ -70,13 +70,24 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-3. Run the server:
+3. Build the CSS bundle (only needed when templates change):
+
+```bash
+npm install
+npm run build:css      # or: npm run watch:css  (rebuild on change)
+```
+
+The compiled `static/output.css` is committed to the repo, so this step is
+optional for a quick run but required if you've edited any templates and
+want the new Tailwind classes to appear.
+
+4. Run the server:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-4. Access the application at `http://localhost:8000`
+5. Access the application at `http://localhost:8000`
 
 ## Authentication
 
@@ -139,6 +150,8 @@ You can lock individual pages or all pages at once from the admin interface:
 | `DB_PATH` | Database file location | `/app/data/cuesheet.db` (container)<br>`cuesheet.db` (local) | Path to SQLite database file |
 | `BACKUP_DIR` | Backup files directory | `backups` | Directory where database backups are stored |
 | `BACKUP_COUNT` | Number of backups to retain | `10` | Maximum number of automatic backups to keep |
+| `OPENROUTER_API_KEY` | OpenRouter API key for AI features | *(none)* | Required for AI Assistant. Get from [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` | Can be overridden for custom endpoints |
 
 ### Container Configuration
 
@@ -155,6 +168,74 @@ You can lock individual pages or all pages at once from the admin interface:
 - Endpoint: `/health`
 - Interval: 30s
 - Verifies web server and database connectivity
+
+## MCP Integration
+
+CueSheet exposes a Model Context Protocol (MCP) server that allows AI assistants like Claude Desktop to interact with your cue system programmatically.
+
+### Available MCP Tools
+
+The MCP server provides 11 tools for managing cues and camera assignments:
+
+**Read Operations:**
+- `list_all_cues` - Get all cues with camera assignments
+- `get_cue_details` - Get detailed information about a specific cue
+- `get_current_state` - Get the current playback state
+- `list_cameras` - List all cameras and their assignment counts
+
+**Write Operations:**
+- `create_cue` - Create a new cue
+- `update_cue` - Update an existing cue's text or notes
+- `delete_cue` - Delete a cue (renumbers subsequent cues)
+- `add_camera_assignment` - Add or update a camera assignment
+- `delete_camera_assignment` - Remove a camera assignment
+
+**Utility:**
+- `advance_to_cue` - Navigate to a specific cue number
+- `export_to_csv` - Export all cues and camera assignments to CSV
+
+### MCP Client Setup
+
+**For Claude Desktop:**
+
+Edit your Claude Desktop configuration file:
+
+**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`  
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the CueSheet MCP server:
+
+```json
+{
+  "mcpServers": {
+    "cuesheet": {
+      "url": "http://localhost:8000/mcp",
+      "transport": "http"
+    }
+  }
+}
+```
+
+Restart Claude Desktop, and you can now ask Claude to interact with your cue system:
+
+```
+"List all cues in the cuesheet"
+"Create a new cue with the line 'ALADDIN: One jump ahead'"
+"Add camera 1 to cue 5 as a wide shot of the stage"
+"Show me the current playback state"
+```
+
+**For Other MCP Clients:**
+
+Point your MCP client to: `http://localhost:8000/mcp`
+
+The server uses standard JSON-RPC over HTTP with these methods:
+- `tools/list` - Get all available tools
+- `tools/call` - Execute a tool
+
+**Authentication:**
+
+The MCP endpoint requires the same authentication as the admin page. Include your session token in requests.
 
 ## License
 
