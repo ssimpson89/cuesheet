@@ -8,15 +8,18 @@ Default Behavior:
 
 Database Settings:
 - auth_password_hash: Hashed password. Always set by default to "admin"
+- session_secret: Random key used to sign session cookies. Persisted so
+  sessions survive process restarts.
 - require_auth_operator: If 'true', require auth for operator page
 - require_auth_director: If 'true', require auth for director page
 - require_auth_camera: If 'true', require auth for camera pages
 - require_auth_overview: If 'true', require auth for overview page
 """
 
+import os
 import secrets
 from typing import Optional
-from fastapi import Request, Response
+from fastapi import Request, Response, HTTPException, status
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer, BadSignature
 import bcrypt
@@ -24,10 +27,29 @@ import bcrypt
 from . import database as db
 
 SESSION_COOKIE_NAME = "cuesheet_session"
+SESSION_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
 
-# Generate a random secret key for session signing (persists for app lifetime)
-_SESSION_SECRET = secrets.token_urlsafe(32)
-serializer = URLSafeTimedSerializer(_SESSION_SECRET)
+_serializer: Optional[URLSafeTimedSerializer] = None
+
+
+async def _get_serializer() -> URLSafeTimedSerializer:
+    """Lazily build the serializer using a DB-persisted secret.
+
+    Falls back to SESSION_SECRET env var if set (useful for tests).
+    """
+    global _serializer
+    if _serializer is not None:
+        return _serializer
+
+    secret = os.getenv("SESSION_SECRET")
+    if not secret:
+        secret = await db.get_setting("session_secret")
+        if not secret:
+            secret = secrets.token_urlsafe(32)
+            await db.set_setting("session_secret", secret)
+
+    _serializer = URLSafeTimedSerializer(secret)
+    return _serializer
 
 
 async def is_auth_enabled() -> bool:
@@ -56,19 +78,21 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         password_bytes = plain_password.encode("utf-8")
         hashed_bytes = hashed_password.encode("utf-8")
         return bcrypt.checkpw(password_bytes, hashed_bytes)
-    except:
+    except (ValueError, TypeError):
         return False
 
 
-def create_session_token(username: str = "admin") -> str:
+async def create_session_token(username: str = "admin") -> str:
     """Create a signed session token"""
+    serializer = await _get_serializer()
     return serializer.dumps({"username": username})
 
 
-def verify_session_token(token: str) -> Optional[str]:
+async def verify_session_token(token: str) -> Optional[str]:
     """Verify session token and return username, or None if invalid"""
+    serializer = await _get_serializer()
     try:
-        data = serializer.loads(token, max_age=30 * 24 * 60 * 60)  # 30 days
+        data = serializer.loads(token, max_age=SESSION_MAX_AGE)
         return data.get("username")
     except (BadSignature, Exception):
         return None
@@ -82,11 +106,11 @@ async def get_current_user(request: Request) -> Optional[str]:
     session_token = request.cookies.get(SESSION_COOKIE_NAME)
     if not session_token:
         return None
-    return verify_session_token(session_token)
+    return await verify_session_token(session_token)
 
 
 async def require_auth(request: Request) -> Optional[Response]:
-    """Check if user is authenticated, return redirect response if not"""
+    """Page-level auth check. Returns a redirect response when unauthenticated."""
     if not await is_auth_enabled():
         return None
 
@@ -99,18 +123,33 @@ async def require_auth(request: Request) -> Optional[Response]:
 async def require_auth_for_page(request: Request, page: str) -> Optional[Response]:
     """Require auth for a specific page if its setting is enabled"""
     if not await is_page_locked(page):
-        return None  # Page is not locked
-
+        return None
     return await require_auth(request)
+
+
+async def require_api_auth(request: Request) -> str:
+    """API-level auth dependency. Returns the username or raises 401.
+
+    Use as a FastAPI dependency on mutating endpoints:
+        async def endpoint(user: str = Depends(auth.require_api_auth)): ...
+    """
+    if not await is_auth_enabled():
+        return "anonymous"
+
+    user = await get_current_user(request)
+    if not user or user == "anonymous":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    return user
 
 
 async def check_password(password: str) -> bool:
     """Check if the provided password matches the stored hash"""
     stored_hash = await db.get_setting("auth_password_hash")
-
     if not stored_hash:
         return False
-
     return verify_password(password, stored_hash)
 
 
@@ -133,14 +172,11 @@ async def set_page_lock(page: str, enabled: bool) -> bool:
 async def get_page_locks() -> dict:
     """Get all page lock settings"""
     pages = ["operator", "director", "camera", "overview"]
-    locks = {}
-    for page in pages:
-        locks[page] = await is_page_locked(page)
-    return locks
+    return {page: await is_page_locked(page) for page in pages}
 
 
 async def set_all_page_locks(enabled: bool) -> bool:
-    """Enable or disable authentication for all pages (except admin which is always locked)"""
+    """Enable or disable authentication for all pages (except admin)"""
     pages = ["operator", "director", "camera", "overview"]
     for page in pages:
         await set_page_lock(page, enabled)

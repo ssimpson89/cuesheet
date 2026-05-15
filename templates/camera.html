@@ -2,11 +2,11 @@
 <html>
 <head>
     <title>Camera {{CAMERA_NUMBER}} - Cue System</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <script src="/static/vendor/tailwindcss.js"></script>
+    <link rel="stylesheet" href="/static/output.css">
     <script defer src="/static/vendor/lucide.js"></script>
 <style>
         .bg-cue-current { background: linear-gradient(180deg, rgba(120, 40, 30, 0.4) 0%, #000 100%); }
@@ -63,6 +63,11 @@
         let ws;
         let wakeLock = null;
         let previousCurrentCue = null;
+
+        function escapeHtml(s) {
+            if (s === null || s === undefined) return '';
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
         
         async function requestWakeLock() {
             try {
@@ -91,6 +96,9 @@
         }
         
         function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
             
@@ -203,9 +211,9 @@
                         <div class="text-blue-400 text-sm font-semibold mb-1">CURRENT</div>
                         <div class="flex items-baseline gap-2 mb-2">
                             <span class="text-blue-400 text-2xl font-mono font-bold">${cue.sequence_number}</span>
-                            <span class="text-blue-300 text-xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                            <span class="text-blue-300 text-xl font-bold flex-1 leading-tight">${escapeHtml(cue.line_text || 'Untitled')}</span>
                         </div>
-                        ${cue.notes ? `<div class="text-blue-300 text-sm mb-1 leading-tight">${cue.notes}</div>` : ''}
+                        ${cue.notes ? `<div class="text-blue-300 text-sm mb-1 leading-tight">${escapeHtml(cue.notes)}</div>` : ''}
                         <div class="text-blue-400 text-sm italic">Not your shot</div>
                     </div>
                 `;
@@ -219,33 +227,33 @@
                     <!-- Cue Number and Title -->
                     <div class="flex items-baseline gap-2 mb-3">
                         <span class="text-white text-3xl font-mono font-bold leading-none">${cue.sequence_number}</span>
-                        <span class="text-white text-2xl font-bold flex-1 leading-tight">${cue.line_text || 'Untitled'}</span>
+                        <span class="text-white text-2xl font-bold flex-1 leading-tight">${escapeHtml(cue.line_text || 'Untitled')}</span>
                     </div>
-                    
+
                     <!-- Most Important: Camera Subject (what you're shooting) -->
                     <div class="bg-black/30 rounded p-2 mb-2 border-l-2 border-red-600/50">
                         <div class="text-red-300 text-sm font-semibold mb-0.5">SUBJECT</div>
-                        <div class="text-red-50 text-2xl font-bold leading-tight">${cue.subject}</div>
+                        <div class="text-red-50 text-2xl font-bold leading-tight">${escapeHtml(cue.subject)}</div>
                     </div>
-                    
+
                     <!-- Shot Type -->
                     ${cue.shot_type ? `
                         <div class="bg-black/20 rounded p-2 mb-2">
                             <div class="text-red-300 text-sm font-semibold mb-0.5">SHOT</div>
-                            <div class="text-white text-lg font-semibold leading-tight">${cue.shot_type}</div>
+                            <div class="text-white text-lg font-semibold leading-tight">${escapeHtml(cue.shot_type)}</div>
                         </div>
                     ` : ''}
-                    
+
                     <!-- Camera Notes (Important) -->
                     ${cue.camera_notes ? `
                         <div class="bg-red-900/20 rounded p-2 mb-2 border-l-2 border-red-700/50">
                             <div class="text-red-200 text-sm font-semibold mb-0.5">NOTES</div>
-                            <div class="text-red-100 text-base leading-tight">${cue.camera_notes}</div>
+                            <div class="text-red-100 text-base leading-tight">${escapeHtml(cue.camera_notes)}</div>
                         </div>
                     ` : ''}
-                    
+
                     <!-- Less Important: Scene Info -->
-                    ${cue.notes ? `<div class="text-red-200 text-sm mt-1 leading-tight">${cue.notes}</div>` : ''}
+                    ${cue.notes ? `<div class="text-red-200 text-sm mt-1 leading-tight">${escapeHtml(cue.notes)}</div>` : ''}
                 </div>
             `;
         }
@@ -279,33 +287,33 @@
                     <!-- Cue Number and Title -->
                     <div class="flex items-baseline gap-2 mb-2">
                         <span class="${textColor} text-xl font-mono font-bold leading-none">${nextShot.sequence_number}</span>
-                        <span class="${textColor} text-lg font-bold flex-1 leading-tight">${nextShot.line_text || 'Untitled'}</span>
+                        <span class="${textColor} text-lg font-bold flex-1 leading-tight">${escapeHtml(nextShot.line_text || 'Untitled')}</span>
                     </div>
-                    
+
                     <!-- Most Important: Camera Subject -->
                     <div class="bg-black/30 rounded p-2 mb-1.5 border-l-2 ${isClose ? 'border-orange-400/70' : 'border-gray-600'}">
                         <div class="${isClose ? 'text-orange-300' : 'text-gray-400'} text-sm font-semibold mb-0.5">SUBJECT</div>
-                        <div class="${subjectColor} text-xl font-bold leading-tight">${nextShot.subject}</div>
+                        <div class="${subjectColor} text-xl font-bold leading-tight">${escapeHtml(nextShot.subject)}</div>
                     </div>
-                    
+
                     <!-- Shot Type -->
                     ${nextShot.shot_type ? `
                         <div class="bg-black/20 rounded p-1.5 mb-1.5">
                             <div class="${textColor} text-sm font-semibold mb-0.5">SHOT</div>
-                            <div class="${textColor} text-base font-semibold leading-tight">${nextShot.shot_type}</div>
+                            <div class="${textColor} text-base font-semibold leading-tight">${escapeHtml(nextShot.shot_type)}</div>
                         </div>
                     ` : ''}
-                    
+
                     <!-- Camera Notes -->
                     ${nextShot.camera_notes ? `
                         <div class="bg-orange-400/10 rounded p-1.5 mb-1.5 border-l-2 border-orange-400/40">
                             <div class="text-orange-200 text-sm font-semibold mb-0.5">NOTES</div>
-                            <div class="text-orange-100 text-base leading-tight">${nextShot.camera_notes}</div>
+                            <div class="text-orange-100 text-base leading-tight">${escapeHtml(nextShot.camera_notes)}</div>
                         </div>
                     ` : ''}
-                    
+
                     <!-- Less Important: Scene Info -->
-                    ${nextShot.notes ? `<div class="${textColor} opacity-70 text-sm mt-1 leading-tight">${nextShot.notes}</div>` : ''}
+                    ${nextShot.notes ? `<div class="${textColor} opacity-70 text-sm mt-1 leading-tight">${escapeHtml(nextShot.notes)}</div>` : ''}
                 </div>
             `;
         }
@@ -325,35 +333,25 @@
             requestWakeLock();
         });
 
-        // Auto-reconnect every 5 seconds if disconnected
+        // Single 5-second watchdog: reconnect, re-request wake lock if it dropped,
+        // and refresh cues. WS onclose handles the immediate reconnect; this is the
+        // belt-and-braces backup for when the tab is suspended.
         setInterval(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 connect();
             }
-            // Re-request wake lock if it was previously active
             if (wakeLock !== null) {
                 requestWakeLock();
             }
-            // Refresh data immediately
             loadCues();
         }, 5000);
-        
-        // Also reconnect when window gains focus (handles force quit + reopen)
+
         window.addEventListener('focus', () => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                connect();
-            }
+            connect();
             loadCues();
         });
-        
-        // Periodic connection check (every 5 seconds) - reconnect if offline
-        setInterval(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                connect();
-            }
-        }, 5000);
-        
-        // Start loading data immediately and connect WebSocket
+
+        // Initial load + single WebSocket connect
         loadCues();
         connect();
     </script>

@@ -1,0 +1,35 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Python / build artifacts
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.ruff_cache
+.python-version
+
+# Node (used only to build static/output.css before image build)
+node_modules
+
+# Local databases / backups — never bake these into the image
+cuesheet.db
+cuesheet.db-shm
+cuesheet.db-wal
+data/
+backups/
+
+# Editor / OS noise
+.DS_Store
+.idea
+.vscode
+
+# Docs & examples
+docs/
+example_production_data.sql
+.env
+.env.example
+README.md

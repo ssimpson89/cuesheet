@@ -4,6 +4,8 @@
   "description": "A real-time cue tracking system for live performances, built with FastAPI and WebSockets.",
   "main": "index.js",
   "scripts": {
+    "build:css": "tailwindcss --input static/input.css --output static/output.css --minify",
+    "watch:css": "tailwindcss --input static/input.css --output static/output.css --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
