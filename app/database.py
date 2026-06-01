@@ -958,7 +958,7 @@ async def restore_backup(filename: str) -> bool:
     except Exception:
         pass
 
-    shutil.copy(backup_path, DB_PATH)
+    shutil.copyfile(backup_path, DB_PATH)
 
     # Drop stale sidecars so SQLite doesn't replay old WAL frames over the
     # restored file on next open.
