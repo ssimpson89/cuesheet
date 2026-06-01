@@ -32,4 +32,3 @@ docs/
 example_production_data.sql
 .env
 .env.example
-README.md
