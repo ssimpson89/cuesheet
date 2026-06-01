@@ -1093,6 +1093,7 @@ async def delete_backup_endpoint(
 @app.get("/api/export/db")
 async def export_db(user: str = Depends(auth.require_api_auth)):
     """Export the database file for download"""
+    await db.flush_to_disk()
     if not os.path.exists(db.DB_PATH):
         raise HTTPException(status_code=404, detail="Database file not found")
 

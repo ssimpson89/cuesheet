@@ -31,6 +31,7 @@ async def _open_memory_db() -> aiosqlite.Connection:
 
     conn = await aiosqlite.connect(":memory:")
     await conn.execute("PRAGMA foreign_keys=ON")
+    conn.row_factory = aiosqlite.Row
 
     if Path(DB_PATH).exists():
         db_path = DB_PATH
