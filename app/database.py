@@ -27,12 +27,22 @@ _sync_task: Optional[asyncio.Task] = None
 
 async def _open_memory_db() -> aiosqlite.Connection:
     """Open the in-memory database, loading from disk if available."""
+    import sqlite3
+
     conn = await aiosqlite.connect(":memory:")
     await conn.execute("PRAGMA foreign_keys=ON")
 
     if Path(DB_PATH).exists():
-        async with aiosqlite.connect(DB_PATH) as disk:
-            await disk.backup(conn._connection)
+        db_path = DB_PATH
+
+        def _load_from_disk(mem_conn):
+            disk = sqlite3.connect(db_path)
+            try:
+                disk.backup(mem_conn)
+            finally:
+                disk.close()
+
+        await conn._execute(_load_from_disk, conn._connection)
         logger.info("Loaded database from disk into memory")
     else:
         logger.info("No existing database found, starting fresh in memory")
@@ -56,8 +66,17 @@ async def flush_to_disk():
     if _mem_conn is None:
         return
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(DB_PATH) as disk:
-        await _mem_conn._connection.backup(disk._connection)
+    import sqlite3
+    db_path = DB_PATH
+
+    def _do_backup(conn):
+        disk = sqlite3.connect(db_path)
+        try:
+            conn.backup(disk)
+        finally:
+            disk.close()
+
+    await _mem_conn._execute(_do_backup, _mem_conn._connection)
 
 
 async def start_memory_db():
@@ -942,8 +961,17 @@ async def create_backup():
     backup_path = Path(BACKUP_DIR) / backup_filename
 
     if _mem_conn is not None:
-        async with aiosqlite.connect(str(backup_path)) as dst:
-            await _mem_conn._connection.backup(dst._connection)
+        import sqlite3
+        bp = str(backup_path)
+
+        def _backup_mem(conn):
+            dst = sqlite3.connect(bp)
+            try:
+                conn.backup(dst)
+            finally:
+                dst.close()
+
+        await _mem_conn._execute(_backup_mem, _mem_conn._connection)
     else:
         async with aiosqlite.connect(DB_PATH) as src:
             async with aiosqlite.connect(str(backup_path)) as dst:
@@ -1019,8 +1047,17 @@ async def restore_backup(filename: str) -> bool:
     safety_backup = Path(BACKUP_DIR) / f"safety_backup_{timestamp}.db"
     try:
         if _mem_conn is not None:
-            async with aiosqlite.connect(str(safety_backup)) as dst:
-                await _mem_conn._connection.backup(dst._connection)
+            import sqlite3
+            sb = str(safety_backup)
+
+            def _safety_backup(conn):
+                dst = sqlite3.connect(sb)
+                try:
+                    conn.backup(dst)
+                finally:
+                    dst.close()
+
+            await _mem_conn._execute(_safety_backup, _mem_conn._connection)
         else:
             async with aiosqlite.connect(DB_PATH) as src:
                 async with aiosqlite.connect(str(safety_backup)) as dst:
@@ -1029,10 +1066,17 @@ async def restore_backup(filename: str) -> bool:
         pass
 
     if _mem_conn is not None:
-        # Load backup into the live in-memory DB
-        async with aiosqlite.connect(str(backup_path)) as src:
-            await src._connection.backup(_mem_conn._connection)
-        # Flush the restored data to disk immediately
+        import sqlite3
+        bp = str(backup_path)
+
+        def _restore_into_mem(mem_conn):
+            src = sqlite3.connect(bp)
+            try:
+                src.backup(mem_conn)
+            finally:
+                src.close()
+
+        await _mem_conn._execute(_restore_into_mem, _mem_conn._connection)
         await flush_to_disk()
     else:
         # Fallback: direct file copy for disk mode
