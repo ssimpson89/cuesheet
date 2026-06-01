@@ -1,4 +1,6 @@
 import aiosqlite
+import asyncio
+import logging
 import os
 import re
 import shutil
@@ -6,8 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+logger = logging.getLogger("uvicorn.error")
+
 DB_PATH = os.getenv("DB_PATH", "cuesheet.db")
-BACKUP_DIR = os.getenv("BACKUP_DIR", "backups")
+BACKUP_DIR = os.getenv("BACKUP_DIR", str(Path(DB_PATH).parent / "backups"))
+SYNC_INTERVAL = int(os.getenv("DB_SYNC_INTERVAL", "30"))
 try:
     BACKUP_COUNT = int(os.getenv("BACKUP_COUNT", "10"))
 except ValueError:
@@ -15,14 +20,86 @@ except ValueError:
 
 _BACKUP_FILENAME_RE = re.compile(r"^cuesheet_backup_[0-9]{8}_[0-9]{6}\.db$")
 
+# In-memory database connection and sync task
+_mem_conn: Optional[aiosqlite.Connection] = None
+_sync_task: Optional[asyncio.Task] = None
+
+
+async def _open_memory_db() -> aiosqlite.Connection:
+    """Open the in-memory database, loading from disk if available."""
+    conn = await aiosqlite.connect(":memory:")
+    await conn.execute("PRAGMA foreign_keys=ON")
+
+    if Path(DB_PATH).exists():
+        async with aiosqlite.connect(DB_PATH) as disk:
+            await disk.backup(conn._connection)
+        logger.info("Loaded database from disk into memory")
+    else:
+        logger.info("No existing database found, starting fresh in memory")
+
+    return conn
+
+
+async def _sync_to_disk():
+    """Periodically backup in-memory DB to disk."""
+    while True:
+        await asyncio.sleep(SYNC_INTERVAL)
+        try:
+            await flush_to_disk()
+        except Exception:
+            logger.exception("Failed to sync in-memory DB to disk")
+
+
+async def flush_to_disk():
+    """Backup the in-memory DB to the on-disk file."""
+    global _mem_conn
+    if _mem_conn is None:
+        return
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+    async with aiosqlite.connect(DB_PATH) as disk:
+        await _mem_conn._connection.backup(disk._connection)
+
+
+async def start_memory_db():
+    """Initialize the in-memory DB and start the background sync task."""
+    global _mem_conn, _sync_task
+    _mem_conn = await _open_memory_db()
+    _sync_task = asyncio.create_task(_sync_to_disk())
+    logger.info("In-memory database started, syncing to disk every %ds", SYNC_INTERVAL)
+
+
+async def stop_memory_db():
+    """Flush to disk and shut down."""
+    global _mem_conn, _sync_task
+    if _sync_task:
+        _sync_task.cancel()
+        try:
+            await _sync_task
+        except asyncio.CancelledError:
+            pass
+        _sync_task = None
+    if _mem_conn:
+        await flush_to_disk()
+        await _mem_conn.close()
+        _mem_conn = None
+    logger.info("In-memory database flushed and closed")
+
 
 def connect():
-    """Return an aiosqlite connection context with sane PRAGMAs applied.
+    """Return an aiosqlite connection context.
 
-    Use as: ``async with db.connect() as conn: ...``
+    When the in-memory DB is active, returns that connection (kept open).
+    Falls back to a per-call disk connection for CLI scripts / tests.
     """
 
-    class _Conn:
+    class _MemConn:
+        async def __aenter__(self):
+            return _mem_conn
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass  # keep the connection open
+
+    class _DiskConn:
         async def __aenter__(self):
             self._conn = await aiosqlite.connect(DB_PATH)
             await self._conn.execute("PRAGMA journal_mode=WAL")
@@ -34,7 +111,9 @@ def connect():
         async def __aexit__(self, exc_type, exc, tb):
             await self._conn.close()
 
-    return _Conn()
+    if _mem_conn is not None:
+        return _MemConn()
+    return _DiskConn()
 
 
 def _safe_backup_path(filename: str) -> Path:
@@ -856,15 +935,19 @@ async def export_to_csv() -> str:
 
 
 async def create_backup():
-    """Create an online (consistent) backup of the database."""
-    Path(BACKUP_DIR).mkdir(exist_ok=True)
+    """Create a backup from the in-memory DB (or disk DB as fallback)."""
+    Path(BACKUP_DIR).mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_filename = f"cuesheet_backup_{timestamp}.db"
     backup_path = Path(BACKUP_DIR) / backup_filename
 
-    async with aiosqlite.connect(DB_PATH) as src:
+    if _mem_conn is not None:
         async with aiosqlite.connect(str(backup_path)) as dst:
-            await src.backup(dst)
+            await _mem_conn._connection.backup(dst._connection)
+    else:
+        async with aiosqlite.connect(DB_PATH) as src:
+            async with aiosqlite.connect(str(backup_path)) as dst:
+                await src.backup(dst)
 
     await cleanup_old_backups()
     return backup_filename
@@ -923,14 +1006,7 @@ async def delete_backup(filename: str) -> bool:
 
 
 async def restore_backup(filename: str) -> bool:
-    """Restore database from a backup file.
-
-    With WAL enabled, just copying the .db file is unsafe: SQLite would
-    replay frames from the pre-restore `-wal` sidecar over the freshly
-    swapped main file. We snapshot first, then truncate the WAL, copy the
-    new file in, and remove the stale `-wal`/`-shm` sidecars so the next
-    open starts clean.
-    """
+    """Restore database from a backup file into the in-memory DB."""
     if not _BACKUP_FILENAME_RE.match(filename):
         raise ValueError("Invalid backup filename")
 
@@ -938,38 +1014,44 @@ async def restore_backup(filename: str) -> bool:
     if not backup_path.exists():
         raise FileNotFoundError(f"Backup file not found: {filename}")
 
-    # Safety snapshot first (consistent online backup). Use a distinct
-    # `safety_backup_` prefix so we can never collide with — and overwrite —
-    # the backup we're about to restore from.
+    # Safety snapshot first
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safety_backup = Path(BACKUP_DIR) / f"safety_backup_{timestamp}.db"
     try:
-        async with aiosqlite.connect(DB_PATH) as src:
+        if _mem_conn is not None:
             async with aiosqlite.connect(str(safety_backup)) as dst:
-                await src.backup(dst)
-    except Exception:
-        # Best-effort; continue with restore
-        pass
-
-    # Flush any pending WAL frames back into the main DB before swap.
-    try:
-        async with aiosqlite.connect(DB_PATH) as conn:
-            await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                await _mem_conn._connection.backup(dst._connection)
+        else:
+            async with aiosqlite.connect(DB_PATH) as src:
+                async with aiosqlite.connect(str(safety_backup)) as dst:
+                    await src.backup(dst)
     except Exception:
         pass
 
-    shutil.copyfile(backup_path, DB_PATH)
-
-    # Drop stale sidecars so SQLite doesn't replay old WAL frames over the
-    # restored file on next open.
-    for suffix in ("-wal", "-shm"):
-        sidecar = Path(f"{DB_PATH}{suffix}")
+    if _mem_conn is not None:
+        # Load backup into the live in-memory DB
+        async with aiosqlite.connect(str(backup_path)) as src:
+            await src._connection.backup(_mem_conn._connection)
+        # Flush the restored data to disk immediately
+        await flush_to_disk()
+    else:
+        # Fallback: direct file copy for disk mode
         try:
-            sidecar.unlink()
-        except FileNotFoundError:
+            async with aiosqlite.connect(DB_PATH) as conn:
+                await conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
             pass
-        except OSError:
-            pass
+
+        shutil.copyfile(backup_path, DB_PATH)
+
+        for suffix in ("-wal", "-shm"):
+            sidecar = Path(f"{DB_PATH}{suffix}")
+            try:
+                sidecar.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
 
     return True
 

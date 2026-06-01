@@ -151,9 +151,8 @@ def _load_template(path: str) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await db.start_memory_db()
     await db.init_db()
-    # Warm template cache so the first hit is fast and missing files fail loud
-    # at startup rather than on a user request.
     for tpl in (
         "templates/operator.html",
         "templates/director.html",
@@ -167,6 +166,7 @@ async def lifespan(app: FastAPI):
         except FileNotFoundError:
             logger.warning("Template %s missing at startup", tpl)
     yield
+    await db.stop_memory_db()
 
 
 app = FastAPI(lifespan=lifespan)
