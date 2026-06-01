@@ -151,10 +151,26 @@
         let editMode = false;
         let allCues = [];
         let pendingDeleteCameraInfo = null;
+        let cameraNames = {};
 
         function escapeHtml(s) {
             if (s === null || s === undefined) return '';
             return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function camLabel(num) {
+            return cameraNames[num]
+                ? 'Cam ' + num + '<div class="text-xs font-normal text-gray-400">' + escapeHtml(cameraNames[num]) + '</div>'
+                : 'Cam ' + num;
+        }
+
+        async function loadCameraNames() {
+            try {
+                const response = await fetch('/api/camera-names');
+                cameraNames = await response.json();
+            } catch (error) {
+                console.error('Error loading camera names:', error);
+            }
         }
         
         function toggleEditMode() {
@@ -215,6 +231,8 @@
                     loadCues(true); // Scroll to current cue on state updates
                 } else if (data.type === 'setting_updated' && data.key === 'script_name') {
                     document.getElementById('serviceName').textContent = data.value;
+                } else if (data.type === 'camera_names_updated') {
+                    loadCameraNames().then(() => loadCues(false));
                 } else if (data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
                     loadCues(false); // Don't scroll when editing
                 }
@@ -288,7 +306,7 @@
                                 <div class="flex-none w-[250px] p-4 rounded-lg border transition-all ${cam.expected_take ? 'bg-red-900/20 border-red-700' : 'bg-slate-800 border-slate-600'}">
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center gap-2">
-                                            <span class="font-bold text-lg text-white">Cam ${cam.camera_number}</span>
+                                            <span class="font-bold text-lg text-white">${camLabel(cam.camera_number)}</span>
                                             ${cam.expected_take ? `
                                                 <button onclick="toggleTake(${cue.id}, ${cam.camera_number}, event)" class="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">⭐ TAKE</button>
                                             ` : `
@@ -744,8 +762,9 @@
         function openDeleteCameraModal(cueId, cameraNumber) {
             const cue = allCues.find(c => c.id === cueId);
             pendingDeleteCameraInfo = { cueId, cameraNumber };
-            document.getElementById('deleteCameraNum').textContent = cameraNumber;
-            document.getElementById('deleteCameraNumText').textContent = cameraNumber;
+            const label = camLabel(cameraNumber);
+            document.getElementById('deleteCameraNum').innerHTML = label;
+            document.getElementById('deleteCameraNumText').innerHTML = label;
             document.getElementById('deleteCameraCueNum').textContent = cue ? cue.sequence_number : cueId;
             document.getElementById('deleteCameraModal').classList.remove('hidden');
         }
@@ -837,7 +856,7 @@
         });
         
         // Start loading data and open a single WebSocket connection.
-        loadCues(true, 'instant');
+        loadCameraNames().then(() => loadCues(true, 'instant'));
         loadSettings();
         connect();
         requestWakeLock();

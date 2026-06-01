@@ -57,10 +57,17 @@
     <script>
         let ws;
         let currentState = null;
+        let cameraNames = {};
 
         function escapeHtml(s) {
             if (s === null || s === undefined) return '';
             return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function camLabel(num) {
+            return cameraNames[num]
+                ? 'CAM ' + num + '<div class="text-xs font-normal opacity-75">' + escapeHtml(cameraNames[num]) + '</div>'
+                : 'CAM ' + num;
         }
 
         function connect() {
@@ -92,8 +99,9 @@
                     }
                     updateScriptName();
                     loadCues();
+                } else if (data.type === 'camera_names_updated') {
+                    loadCameraNames().then(() => loadCues());
                 } else if (data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
-                    // Reload cues when camera assignments or cues are updated
                     loadCues();
                 } else if (data.type === 'setting_updated' && data.key === 'script_name') {
                     document.getElementById('serviceName').textContent = data.value;
@@ -119,6 +127,15 @@
             }
         }
         
+        async function loadCameraNames() {
+            try {
+                const response = await fetch('/api/camera-names');
+                cameraNames = await response.json();
+            } catch (error) {
+                console.error('Error loading camera names:', error);
+            }
+        }
+
         async function loadCues() {
             try {
                 const response = await fetch('/api/cues/all');
@@ -203,7 +220,7 @@
             return `
                 <div class="${bgColor} rounded-lg p-4 transition-all hover:scale-105">
                     <div class="flex items-center justify-between mb-3">
-                        <div class="${badgeColor} px-3 py-1 rounded-lg text-sm font-bold">CAM ${cam.camera_number}</div>
+                        <div class="${badgeColor} px-3 py-1 rounded-lg text-sm font-bold">${camLabel(cam.camera_number)}</div>
                         ${isActive ? '<div class="text-red-400 text-sm font-bold">⭐ TAKE</div>' : ''}
                     </div>
                     <div class="${isActive ? 'text-white' : 'text-gray-200'} text-lg font-bold mb-2 leading-tight">${escapeHtml(cam.subject)}</div>
@@ -228,7 +245,7 @@
                         <div class="flex gap-2 flex-wrap">
                             ${activeCameras.map(cam => `
                                 <div class="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-base flex items-center gap-2">
-                                    <span class="text-orange-400 font-bold">Cam ${cam.camera_number}:</span>
+                                    <span class="text-orange-400 font-bold">${camLabel(cam.camera_number)}:</span>
                                     <span class="text-gray-200">${escapeHtml(cam.subject)}</span>
                                     ${cam.expected_take ? '<span class="text-red-400 text-sm">⭐</span>' : ''}
                                 </div>
@@ -241,7 +258,7 @@
         
         // Initial load + single WebSocket connect. WS broadcasts cover edits;
         // no 2s polling needed.
-        loadCues();
+        loadCameraNames().then(() => loadCues());
         loadSettings();
         connect();
     </script>

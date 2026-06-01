@@ -189,6 +189,36 @@ def get_all_tools() -> List[Dict[str, Any]]:
             "annotations": {"readOnlyHint": True, "destructiveHint": False},
             "handler": handle_export_csv,
         },
+        # =================================================================
+        # Camera Names
+        # =================================================================
+        {
+            "name": "get_camera_names",
+            "description": "Get all camera display names (aliases)",
+            "inputSchema": {"type": "object", "properties": {}, "required": []},
+            "annotations": {"readOnlyHint": True, "destructiveHint": False},
+            "handler": handle_get_camera_names,
+        },
+        {
+            "name": "set_camera_name",
+            "description": "Set a display name (alias) for a camera",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "camera_number": {
+                        "type": "integer",
+                        "description": "Camera number to name",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Display name for the camera (e.g., 'Stage Left', 'Follow Cam')",
+                    },
+                },
+                "required": ["camera_number", "name"],
+            },
+            "annotations": {"readOnlyHint": False, "destructiveHint": False},
+            "handler": handle_set_camera_name,
+        },
     ]
 
 
@@ -219,6 +249,39 @@ async def handle_get_current_state(arguments: Dict[str, Any]) -> List[Dict[str, 
 async def handle_list_cameras(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
     cameras = await db.get_cameras_list()
     return [{"type": "text", "text": json.dumps(cameras, indent=2)}]
+
+
+async def handle_get_camera_names(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+    names = await db.get_camera_names()
+    str_keyed = {str(k): v for k, v in names.items()}
+    return [{"type": "text", "text": json.dumps(str_keyed, indent=2)}]
+
+
+async def handle_set_camera_name(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+    camera_number = arguments["camera_number"]
+    name = arguments["name"].strip()
+    if not name:
+        return [
+            {
+                "type": "text",
+                "text": json.dumps({"success": False, "message": "Name cannot be empty"}, indent=2),
+            }
+        ]
+    await db.set_camera_name(camera_number, name)
+    return [
+        {
+            "type": "text",
+            "text": json.dumps(
+                {
+                    "success": True,
+                    "camera_number": camera_number,
+                    "name": name,
+                    "message": f"Camera {camera_number} named '{name}'",
+                },
+                indent=2,
+            ),
+        }
+    ]
 
 
 async def handle_create_cue(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:

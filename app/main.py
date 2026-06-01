@@ -246,6 +246,7 @@ async def root():
                     container.innerHTML = cameras.map(cam => `
                         <a href="/camera/${encodeURIComponent(cam.camera_number)}" class="camera-link">
                             <h2>Camera ${escapeHtml(cam.camera_number)}</h2>
+                            ${cam.camera_name ? '<p style="color:#4ecca3;font-size:13px;margin:4px 0;">' + escapeHtml(cam.camera_name) + '</p>' : ''}
                             <p>${escapeHtml(cam.assignment_count)} cue${cam.assignment_count !== 1 ? 's' : ''}</p>
                         </a>
                     `).join('');
@@ -446,12 +447,42 @@ async def get_all_cues():
 async def get_camera_cues(camera_number: int):
     cues = await db.get_camera_view(camera_number)
     script_name = await db.get_script_name()
-    return {"cues": cues, "script_name": script_name}
+    camera_name = await db.get_camera_name(camera_number)
+    return {"cues": cues, "script_name": script_name, "camera_name": camera_name}
 
 
 @app.get("/api/cameras")
 async def get_all_cameras():
     return await db.get_cameras_list()
+
+
+@app.get("/api/camera-names")
+async def get_camera_names():
+    return await db.get_camera_names()
+
+
+@app.put("/api/camera-names/{camera_number}")
+async def set_camera_name(
+    camera_number: int,
+    name: str,
+    user: str = Depends(auth.require_api_auth),
+):
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    await db.set_camera_name(camera_number, name)
+    await manager.broadcast({"type": "camera_names_updated"})
+    return {"success": True, "camera_number": camera_number, "name": name}
+
+
+@app.delete("/api/camera-names/{camera_number}")
+async def delete_camera_name(
+    camera_number: int,
+    user: str = Depends(auth.require_api_auth),
+):
+    await db.delete_camera_name(camera_number)
+    await manager.broadcast({"type": "camera_names_updated"})
+    return {"success": True, "camera_number": camera_number}
 
 
 # ============================================================================

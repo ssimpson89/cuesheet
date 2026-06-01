@@ -123,6 +123,13 @@ async def init_db():
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_assignments_unique ON camera_assignments(cue_id, camera_number)"
         )
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS camera_names (
+                camera_number INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+        """)
+
         await db.execute(
             "INSERT OR IGNORE INTO scripts (id, name) VALUES (1, 'Default Script')"
         )
@@ -736,16 +743,58 @@ async def clear_all_data():
             raise
 
 
+async def get_camera_names() -> dict[int, str]:
+    """Return a mapping of camera_number -> name for all named cameras."""
+    async with connect() as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT camera_number, name FROM camera_names") as cursor:
+            rows = await cursor.fetchall()
+            return {row["camera_number"]: row["name"] for row in rows}
+
+
+async def get_camera_name(camera_number: int) -> Optional[str]:
+    """Return the name for a specific camera, or None."""
+    async with connect() as db:
+        async with db.execute(
+            "SELECT name FROM camera_names WHERE camera_number = ?",
+            (camera_number,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
+
+async def set_camera_name(camera_number: int, name: str):
+    """Set or update a camera's display name."""
+    async with connect() as db:
+        await db.execute(
+            "INSERT INTO camera_names (camera_number, name) VALUES (?, ?) "
+            "ON CONFLICT(camera_number) DO UPDATE SET name = excluded.name",
+            (camera_number, name),
+        )
+        await db.commit()
+
+
+async def delete_camera_name(camera_number: int):
+    """Remove a camera's display name."""
+    async with connect() as db:
+        await db.execute(
+            "DELETE FROM camera_names WHERE camera_number = ?",
+            (camera_number,),
+        )
+        await db.commit()
+
+
 async def get_cameras_list():
-    """Return list of cameras and assignment counts (used by MCP)."""
+    """Return list of cameras and assignment counts with names."""
     async with connect() as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
             """
-            SELECT camera_number, COUNT(*) as assignment_count
-            FROM camera_assignments
-            GROUP BY camera_number
-            ORDER BY camera_number
+            SELECT ca.camera_number, COUNT(*) as assignment_count, cn.name as camera_name
+            FROM camera_assignments ca
+            LEFT JOIN camera_names cn ON ca.camera_number = cn.camera_number
+            GROUP BY ca.camera_number
+            ORDER BY ca.camera_number
             """
         ) as cursor:
             rows = await cursor.fetchall()
@@ -753,6 +802,7 @@ async def get_cameras_list():
                 {
                     "camera_number": row["camera_number"],
                     "assignment_count": row["assignment_count"],
+                    "camera_name": row["camera_name"],
                 }
                 for row in rows
             ]

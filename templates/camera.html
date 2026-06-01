@@ -37,7 +37,9 @@
             </svg>
             <span id="serviceName" class="text-sm font-semibold hidden sm:inline">Loading...</span>
         </a>
-        <div class="text-xl font-bold text-blue-400">CAM {{CAMERA_NUMBER}}</div>
+        <div class="text-center">
+            <div id="cameraLabel" class="text-xl font-bold text-blue-400">CAM {{CAMERA_NUMBER}}</div>
+        </div>
         <div id="status" class="text-sm font-bold px-3 py-1 rounded-full">Connecting...</div>
     </header>
     
@@ -117,7 +119,7 @@
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.type === 'state_update' || data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
+                if (data.type === 'camera_names_updated' || data.type === 'state_update' || data.type === 'camera_updated' || data.type === 'cue_updated' || data.type === 'cue_created' || data.type === 'cue_deleted') {
                     if (data.state && data.state.script_name) {
                         document.getElementById('serviceName').textContent = data.state.script_name;
                     }
@@ -141,6 +143,12 @@
                 const cues = data.cues || data; // Support both old and new format
                 if (data.script_name) {
                     document.getElementById('serviceName').textContent = data.script_name;
+                }
+                const label = document.getElementById('cameraLabel');
+                if (data.camera_name) {
+                    label.innerHTML = 'CAM ' + CAMERA_NUMBER + '<div class="text-xs text-blue-300 font-normal">' + escapeHtml(data.camera_name) + '</div>';
+                } else {
+                    label.textContent = 'CAM ' + CAMERA_NUMBER;
                 }
                 
                 renderCues(cues);
